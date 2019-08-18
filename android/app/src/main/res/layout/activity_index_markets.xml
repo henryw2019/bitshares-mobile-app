@@ -103,17 +103,13 @@
         <android.support.design.widget.TabItem
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="BitCNY" />
+            android:text="CNC" />
 
         <android.support.design.widget.TabItem
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="BitUSD" />
+            android:text="USDT" />
 
-        <android.support.design.widget.TabItem
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="BTS" />
     </android.support.design.widget.TabLayout>
 
     <android.support.v4.view.ViewPager

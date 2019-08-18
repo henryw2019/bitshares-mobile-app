@@ -258,8 +258,6 @@
 
         </LinearLayout>
 
-        <!-- faq -->
-
         <!-- setting -->
         <LinearLayout
             android:id="@+id/layout_setting_from_my"
@@ -325,7 +323,6 @@
                 android:layout_height="20dp"
                 android:layout_gravity="center_vertical|right"
                 android:layout_weight="1"
-
                 android:foregroundGravity="right"
                 android:src="@drawable/ic_btn_right_arrow" />
 
@@ -333,5 +330,18 @@
 
 
     </LinearLayout>
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="bottom"
+        android:orientation="horizontal">
 
+        <include
+            layout="@layout/bottom_nav"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            tools:layout_editor_absoluteX="0dp"
+            tools:layout_editor_absoluteY="463dp" />
+    </LinearLayout>
 </android.support.constraint.ConstraintLayout>

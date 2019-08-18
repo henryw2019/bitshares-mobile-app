@@ -12,7 +12,7 @@
     <string name="kLabelGroupNameWWW">WWW(Gateway)</string>
     <string name="kLabelGroupNameOPEN">OPEN(Gateway)</string>
     <string name="kLabelGroupNameWIN">WIN(Gateway)</string>
-    <string name="kLabelGroupNameOther">Other</string>
+    <string name="kLabelGroupNameOther">Main</string>
     <string name="kLabelGroupIntroduction">Introduction &gt;</string>
     <string name="kLabelNoFavMarket">You have not added any favorites market.</string>
     <!-- 抵押界面 -->

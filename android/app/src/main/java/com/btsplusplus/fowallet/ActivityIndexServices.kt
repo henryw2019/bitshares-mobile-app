@@ -36,7 +36,7 @@ class ActivityIndexServices : BtsppActivity() {
         img_icon_transfer.setColorFilter(iconcolor)
         img_icon_account_search.setColorFilter(iconcolor)
         img_icon_rank.setColorFilter(iconcolor)
-        img_icon_voting.setColorFilter(iconcolor)
+        //img_icon_voting.setColorFilter(iconcolor)
         img_icon_feedprice.setColorFilter(iconcolor)
         //img_icon_deposit_withdraw.setColorFilter(iconcolor)
         //img_icon_advfunction.setColorFilter(iconcolor)
@@ -73,9 +73,9 @@ class ActivityIndexServices : BtsppActivity() {
             }
         }
 
-        layout_voting_from_services.setOnClickListener {
-            guardWalletExist { goTo(ActivityVoting::class.java, true) }
-        }
+        //layout_voting_from_services.setOnClickListener {
+        //    guardWalletExist { goTo(ActivityVoting::class.java, true) }
+        //}
 
         layout_feed_price.setOnClickListener {
             goTo(ActivityFeedPrice::class.java, true)

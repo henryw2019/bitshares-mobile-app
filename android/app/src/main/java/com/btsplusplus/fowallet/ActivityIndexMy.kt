@@ -37,7 +37,7 @@ class ActivityIndexMy : BtsppActivity() {
         img_icon_orders.setColorFilter(iconcolor)
         img_icon_wallet.setColorFilter(iconcolor)
         img_icon_proposal.setColorFilter(iconcolor)
-        img_icon_faq.setColorFilter(iconcolor)
+        //img_icon_faq.setColorFilter(iconcolor)
         img_icon_setting.setColorFilter(iconcolor)
         img_icon_about.setColorFilter(iconcolor)
 
@@ -108,9 +108,9 @@ class ActivityIndexMy : BtsppActivity() {
             }
         }
 
-        layout_faq_from_my.setOnClickListener {
-            goToWebView(resources.getString(R.string.faq), "https://btspp.io/qa.html")
-        }
+        //layout_faq_from_my.setOnClickListener {
+        //    goToWebView(resources.getString(R.string.faq), "https://ctspp.io/qa.html")
+        //}
 
         layout_about_from_my.setOnClickListener {
             goTo(ActivityAbout::class.java, true)

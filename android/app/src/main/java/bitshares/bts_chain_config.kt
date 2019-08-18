@@ -130,7 +130,7 @@ enum class EAccountPermissionStatus(val value: Int) {
     EAPS_FULL_PERMISSION(3)     //  有所有权限
 }
 
-const val BTS_ADDRESS_PREFIX: String = "BTS"
+const val BTS_ADDRESS_PREFIX: String = "CTS"
 
 //  BTS公钥地址前缀长度 = strlen(BTS_ADDRESS_PREFIX)
 const val BTS_ADDRESS_PREFIX_LENGTH: Int = 3
@@ -139,10 +139,10 @@ const val BTS_ADDRESS_PREFIX_LENGTH: Int = 3
 const val BTS_CHAIN_EXPIRE_IN_SECS: Int = 15
 
 //  BTS主网公链ID（正式网络）
-const val BTS_NETWORK_CHAIN_ID: String = "4018d7844c78f6a6c41c6a552b898022310fc5dec06da467ee7905a8dad512c8"
+const val BTS_NETWORK_CHAIN_ID: String = "53952fc10d52a3af6d572a298e8f99a0a2e7afd0f7dbad354d8d65e8c36c962d"
 
 //  BTS主网核心资产名称（正式网络）
-const val BTS_NETWORK_CORE_ASSET: String = "BTS"
+const val BTS_NETWORK_CORE_ASSET: String = "CTS"
 
 //  BTS主网核心资产ID号
 const val BTS_NETWORK_CORE_ASSET_ID: String = "1.3.0"
@@ -160,8 +160,8 @@ const val BTS_GRAPHENE_TEMP_ACCOUNT = "1.2.4"
 //  5:代理给自己
 const val BTS_GRAPHENE_PROXY_TO_SELF = "1.2.5"
 
-//  黑名单意见账号：btspp-team
-const val BTS_GRAPHENE_ACCOUNT_BTSPP_TEAM = "1.2.1031560"
+//  黑名单意见账号：hellocts2019
+const val BTS_GRAPHENE_ACCOUNT_BTSPP_TEAM = "1.2.3179"
 
 //  BTS网络动态全局信息对象ID号
 //  格式：

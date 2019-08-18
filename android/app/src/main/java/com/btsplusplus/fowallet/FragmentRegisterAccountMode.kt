@@ -77,13 +77,13 @@ class FragmentRegisterAccountMode : Fragment() {
             val seed_active = "${username}active${password}"
             val owner_key = OrgUtils.genBtsAddressFromPrivateKeySeed(seed_owner)!!
             val active_key = OrgUtils.genBtsAddressFromPrivateKeySeed(seed_active)!!
-            val args = jsonObjectfromKVS("account_name", username,
+            val args = jsonObjectfromKVS("name", username,
                     "owner_key", owner_key,
                     "active_key", active_key,
                     "memo_key", active_key,
-                    "chid", kAppChannelID,
-                    "referrer_code", refcode)
-            OrgUtils.asyncPost(chainMgr.getFinalFaucetURL(), args).then {
+                    "refcode", refcode,
+                    "referrer", refcode)
+            OrgUtils.asyncPost_jsonBody(chainMgr.getFinalFaucetURL(), args).then {
                 val response = it as JSONObject
                 //  注册失败
                 if (response.getInt("status") != 0) {
@@ -147,7 +147,7 @@ class FragmentRegisterAccountMode : Fragment() {
         view.findViewById<ImageView>(R.id.tip_password).setOnClickListener { UtilsAlert.showMessageBox(activity!!, R.string.kLoginRegTipsAccountPasswordFormat.xmlstring(_ctx!!)) }
         view.findViewById<ImageView>(R.id.tip_refcode).setOnClickListener {
             btsppLogCustom("qa_tip_click", jsonObjectfromKVS("qa", "qa_refcode"))
-            activity!!.goToWebView(_ctx!!.resources.getString(R.string.kVcTitleWhatIsRefcode), "https://btspp.io/qam.html#qa_refcode")
+            activity!!.goToWebView(_ctx!!.resources.getString(R.string.kVcTitleWhatIsRefcode), "https://ctspp.io/qam.html#qa_refcode")
         }
         return view
     }

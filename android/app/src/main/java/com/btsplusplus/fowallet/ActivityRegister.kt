@@ -41,7 +41,7 @@ class ActivityRegister : BtsppActivity() {
     }
 
     private fun onTermsOfServiceClicked() {
-        goToWebView(R.string.kVcTitleAgreement.xmlstring(this), "https://btspp.io/agreement.html")
+        goToWebView(R.string.kVcTitleAgreement.xmlstring(this), "https://ctspp.io/agreement.html")
     }
 
     private fun setViewPager() {

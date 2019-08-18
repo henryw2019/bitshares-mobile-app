@@ -286,13 +286,13 @@ class ChainObjectManager {
      */
     fun getFinalFaucetURL(): String {
         //  1、优先从服务器动态获取
-        val serverConfig = SettingManager.sharedSettingManager().serverConfig
-        if (serverConfig != null) {
-            val serverFaucetURL = serverConfig.optString("faucetURL", "")
-            if (serverFaucetURL != "") {
-                return serverFaucetURL
-            }
-        }
+        //val serverConfig = SettingManager.sharedSettingManager().serverConfig
+        //if (serverConfig != null) {
+        //    val serverFaucetURL = serverConfig.optString("faucetURL", "")
+        //    if (serverFaucetURL != "") {
+        //        return serverFaucetURL
+        //    }
+        //}
         //  2、其次获取app内默认配置
         val baseURL = getDefaultFaucet().getString("url")
         return "${baseURL}/register"

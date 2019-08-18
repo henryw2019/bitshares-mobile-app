@@ -83,7 +83,7 @@ class FragmentLoginBrainKeyMode : Fragment() {
         v.findViewById<ImageView>(R.id.tip_link_trading_password_from_brain_key_mode).setOnClickListener {
             //  [统计]
             btsppLogCustom("qa_tip_click", jsonObjectfromKVS("qa", "qa_trading_password"))
-            activity!!.goToWebView(_ctx!!.resources.getString(R.string.kVcTitleWhatIsTradePassowrd), "https://btspp.io/qam.html#qa_trading_password")
+            activity!!.goToWebView(_ctx!!.resources.getString(R.string.kVcTitleWhatIsTradePassowrd), "https://ctspp.io/qam.html#qa_trading_password")
         }
 
         return v

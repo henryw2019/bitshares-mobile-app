@@ -93,7 +93,7 @@ class ActivityLaunch : BtsppActivity() {
             val pNewestVersion = pConfig.optString("version", "")
             if (pNewestVersion != "") {
                 val ret = Utils.compareVersion(pNewestVersion, _appNativeVersion)
-                if (ret > 0) {
+                if (ret > 10000) {
                     //  有更新
                     var message = pConfig.optString(resources.getString(R.string.launchTipVersionKey), "")
                     if (message == "") {

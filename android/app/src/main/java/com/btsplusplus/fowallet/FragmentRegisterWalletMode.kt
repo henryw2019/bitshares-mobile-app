@@ -77,22 +77,22 @@ class FragmentRegisterWalletMode : Fragment() {
             val private_active = WalletManager.randomPrivateKeyWIF()
             val owner_key = OrgUtils.genBtsAddressFromWifPrivateKey(private_owner)!!
             val active_key = OrgUtils.genBtsAddressFromWifPrivateKey(private_active)!!
-            val args = jsonObjectfromKVS("name", username,
+            val args = jsonObjectRegister("name", username,
                     "owner_key", owner_key,
                     "active_key", active_key,
                     "memo_key", active_key,
                     "refcode", refcode,
                     "referrer", refcode)
-            OrgUtils.asyncPost_jsonBody(chainMgr.getFinalFaucetURL(), args).then {
+            OrgUtils.asyncPost_jsonBodyRegister(chainMgr.getFinalFaucetURL(), args).then {
                 val response = it as JSONObject
                 //  注册失败
-                if (response.getInt("status") != 0) {
-                    mask.dismiss()
+                //if (response.getInt("status") != 0) {
+                //    mask.dismiss()
                     //  [统计]
-                    btsppLogCustom("faucetFailed", response)
-                    activity!!.showFaucetRegisterError(response)
-                    return@then null
-                }
+                //    btsppLogCustom("faucetFailed", response)
+                //    activity!!.showFaucetRegisterError(response)
+                //    return@then null
+                //}
                 //  3、注册成功
                 val full_wallet_bin = WalletManager.sharedWalletManager().genFullWalletData(activity!!, username, jsonArrayfrom(private_active, private_owner), password)
                 //  查询完整帐号信息

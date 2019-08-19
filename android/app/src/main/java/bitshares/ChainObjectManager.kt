@@ -295,7 +295,7 @@ class ChainObjectManager {
         //}
         //  2、其次获取app内默认配置
         val baseURL = getDefaultFaucet().getString("url")
-        return "${baseURL}/register"
+        return "${baseURL}/api/v1/accounts"
     }
 
     /**

@@ -447,6 +447,16 @@ class OrgUtils {
             return p
         }
 
+        fun asyncPost_jsonBodyRegister(url: String, args: JSONObject): Promise {
+            val p = Promise()
+            _asyncExecRequest(p, url, body = args.toString(), headers = JSONObject().apply {
+                put("Content-Type", "application/json")
+                put("Accept","application/json")
+            })
+            return p
+        }
+
+
         /**
          * 异步GET请求
          */

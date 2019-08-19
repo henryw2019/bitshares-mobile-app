@@ -75,6 +75,26 @@ fun jsonObjectfromKVS(vararg args: Any): JSONObject {
     return retv
 }
 
+fun jsonObjectRegister(vararg args: Any): JSONObject {
+    val retv = JSONObject()
+    val retall = JSONObject()
+    assert(args.size % 2 == 0)
+    for (i in 0 until args.size step 2) {
+        val key = args[i] as String
+        val value = args[i + 1]
+        if (key == "refcode" || key == "referrer"){
+            retv.put(key, JSONObject.NULL)
+        }else{
+            retv.put(key, value)
+        }
+    }
+
+    val key = "account"
+    val value = retv
+    retall.put(key,retv)
+    return retall
+}
+
 /**
  * 返回所有值
  */

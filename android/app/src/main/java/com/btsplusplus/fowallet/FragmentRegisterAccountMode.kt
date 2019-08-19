@@ -77,22 +77,22 @@ class FragmentRegisterAccountMode : Fragment() {
             val seed_active = "${username}active${password}"
             val owner_key = OrgUtils.genBtsAddressFromPrivateKeySeed(seed_owner)!!
             val active_key = OrgUtils.genBtsAddressFromPrivateKeySeed(seed_active)!!
-            val args = jsonObjectfromKVS("name", username,
+            val args = jsonObjectRegister("name", username,
                     "owner_key", owner_key,
                     "active_key", active_key,
                     "memo_key", active_key,
                     "refcode", refcode,
                     "referrer", refcode)
-            OrgUtils.asyncPost_jsonBody(chainMgr.getFinalFaucetURL(), args).then {
+            OrgUtils.asyncPost_jsonBodyRegister(chainMgr.getFinalFaucetURL(), args).then {
                 val response = it as JSONObject
                 //  注册失败
-                if (response.getInt("status") != 0) {
-                    mask.dismiss()
+                //if (response.getInt("status") != 0) {
+                //    mask.dismiss()
                     //  [统计]
-                    btsppLogCustom("faucetFailed", response)
-                    activity!!.showFaucetRegisterError(response)
-                    return@then null
-                }
+                 //   btsppLogCustom("faucetFailed", response)
+                 //   activity!!.showFaucetRegisterError(response)
+                 //   return@then null
+                //}
                 //  3、注册成功（查询full_account_data）
                 chainMgr.queryFullAccountInfo(username).then {
                     mask.dismiss()

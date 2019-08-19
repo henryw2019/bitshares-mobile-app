@@ -108,9 +108,9 @@ class ActivityIndexMy : BtsppActivity() {
             }
         }
 
-        //layout_faq_from_my.setOnClickListener {
-        //    goToWebView(resources.getString(R.string.faq), "https://ctspp.io/qa.html")
-        //}
+        layout_faq_from_my.setOnClickListener {
+            goToWebView(resources.getString(R.string.faq), "http://202.182.114.2/")
+        }
 
         layout_about_from_my.setOnClickListener {
             goTo(ActivityAbout::class.java, true)

@@ -206,7 +206,7 @@
     "voting_proxy_max_level": 3
   },
   "faucet": {
-    "url": "https://www.citshares.org/faucet/"
+    "url": "http://148.70.246.185:8082/"
   },
   "call_order_ranking_list": ["CNY"],
   "detail_feedprice_list": ["CNY"],

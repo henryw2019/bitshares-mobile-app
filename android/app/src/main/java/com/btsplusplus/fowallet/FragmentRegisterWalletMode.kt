@@ -81,14 +81,14 @@ class FragmentRegisterWalletMode : Fragment() {
                     "owner_key", owner_key,
                     "active_key", active_key,
                     "memo_key", active_key,
-                    "refcode", refcode,
-                    "referrer", refcode)
+                    "refcode",refcode,
+                    "referrer",refcode)
             OrgUtils.asyncPost_jsonBodyRegister(chainMgr.getFinalFaucetURL(), args).then {
                 val response = it as JSONObject
                 //  注册失败
                 //if (response.getInt("status") != 0) {
                 //    mask.dismiss()
-                    //  [统计]
+                //  [统计]
                 //    btsppLogCustom("faucetFailed", response)
                 //    activity!!.showFaucetRegisterError(response)
                 //    return@then null
@@ -144,7 +144,7 @@ class FragmentRegisterWalletMode : Fragment() {
         view.findViewById<ImageView>(R.id.tip_password).setOnClickListener { UtilsAlert.showMessageBox(activity!!, R.string.kLoginRegTipsWalletPasswordFormat.xmlstring(_ctx!!)) }
         view.findViewById<ImageView>(R.id.tip_refcode).setOnClickListener {
             btsppLogCustom("qa_tip_click", jsonObjectfromKVS("qa", "qa_refcode"))
-            activity!!.goToWebView(_ctx!!.resources.getString(R.string.kVcTitleWhatIsRefcode), "https://ctspp.io/qam.html#qa_refcode")
+            activity!!.goToWebView(_ctx!!.resources.getString(R.string.kVcTitleWhatIsRefcode), "http://btspp.io/qam.html#qa_refcode")
         }
         return view
     }

@@ -14,6 +14,7 @@
 #import "VCFeedPriceDetail.h"
 #import "VCBtsaiWebView.h"
 #import "VCTransfer.h"
+#import "VCAdvancedFeatures.h"
 #import "VCVote.h"
 #import "VCDepositWithdrawList.h"
 
@@ -26,6 +27,7 @@ enum
     kVcTransfer = 0,        //  转账区域
     kVcQuery,               //  数据查询区域（账号、抵押信息、喂价信息）
     kVcGateway,             //  网关/充提
+    kVcAdvanced,            //  更多高级功能(HTLC等）
     
     kVcMax
 };
@@ -56,7 +58,7 @@ enum
 @interface VCServices ()
 {    
     UITableView*            _mainTableView;
-    NSArray*                _dateArray; //  assgin
+    NSArray*                _dataArray; //  assgin
 }
 
 @end
@@ -85,21 +87,25 @@ enum
 //                          nil];
     
     NSArray* pSection2 = [NSArray arrayWithObjects:
-                          NSLocalizedString(@"kServicesCellLabelTransfer", @"转账"),
-                          NSLocalizedString(@"kServicesCellLabelVoting", @"投票"),
+                          @"kServicesCellLabelTransfer",        //  转账
+                          @"kServicesCellLabelVoting",          //  投票
                           nil];
     
     NSArray* pSection3 = [NSArray arrayWithObjects:
-                          NSLocalizedString(@"kServicesCellLabelAccountSearch", @"帐号查询"),
-                          NSLocalizedString(@"kServicesCellLabelRank", @"抵押排行"),
-                          NSLocalizedString(@"kServicesCellLabelFeedPrice", @"喂价详情"),
+                          @"kServicesCellLabelAccountSearch",   //  帐号查询
+                          @"kServicesCellLabelRank",            //  抵押排行
+                          @"kServicesCellLabelFeedPrice",       //  喂价详情
                           nil];
     
     NSArray* pSection4 = [NSArray arrayWithObjects:
-                          NSLocalizedString(@"kServicesCellLabelDepositWithdraw", @"充币提币"),
+                          @"kServicesCellLabelDepositWithdraw", //  充币提币
                           nil];
     
-    _dateArray = [[NSArray alloc] initWithObjects:pSection2, pSection3, pSection4, nil];
+    NSArray* pSection5 = @[
+                           @"kServicesCellLabelAdvFunction"     //  高级功能
+                           ];
+    
+    _dataArray = [[NSArray alloc] initWithObjects:pSection2, pSection3, pSection4, pSection5, nil];
     
     _mainTableView = [[UITableView alloc] initWithFrame:[self rectWithoutNaviAndTab] style:UITableViewStyleGrouped];
     _mainTableView.delegate = self;
@@ -133,12 +139,12 @@ enum
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView
 {
-    return [_dateArray count];
+    return [_dataArray count];
 }
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section
 {
-    return [[_dateArray objectAtIndex:section] count];
+    return [[_dataArray objectAtIndex:section] count];
 }
 
 -(CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath
@@ -165,13 +171,13 @@ enum
     cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
     cell.selectionStyle = UITableViewCellSelectionStyleBlue;
 
-    id ary = [_dateArray objectAtIndex:indexPath.section];
+    id ary = [_dataArray objectAtIndex:indexPath.section];
     
     cell.backgroundColor = [UIColor clearColor];
     
     cell.showCustomBottomLine = YES;
     
-    cell.textLabel.text = [ary objectAtIndex:indexPath.row];
+    cell.textLabel.text = NSLocalizedString([ary objectAtIndex:indexPath.row], @"");
     cell.textLabel.textColor = [ThemeManager sharedThemeManager].textColorMain;
     
     switch (indexPath.section) {
@@ -249,6 +255,12 @@ enum
                 default:
                     break;
             }
+        }
+            break;
+        case kVcAdvanced:
+        {
+            cell.imageView.image = [UIImage templateImageNamed:@"iconAdvFunction"];
+            cell.imageView.tintColor = [ThemeManager sharedThemeManager].textColorNormal;
         }
             break;
         default:
@@ -369,6 +381,12 @@ enum
                 }
             }
                 break;
+            case kVcAdvanced:
+            {
+                vc = [[VCAdvancedFeatures alloc] init];
+                vc.title = NSLocalizedString(@"kVcTitleDepositAdvFunction", @"高级功能");
+            }
+                break;
             default:
                 break;
         }
@@ -383,6 +401,16 @@ enum
 {
     self.view.backgroundColor = [ThemeManager sharedThemeManager].appBackColor;
     if (_mainTableView){
+        [_mainTableView reloadData];
+    }
+}
+
+#pragma mark- switch language
+- (void)switchLanguage
+{
+    self.title = NSLocalizedString(@"kTabBarNameServices", @"服务");
+    self.tabBarItem.title = NSLocalizedString(@"kTabBarNameServices", @"服务");
+    if (_mainTableView) {
         [_mainTableView reloadData];
     }
 }

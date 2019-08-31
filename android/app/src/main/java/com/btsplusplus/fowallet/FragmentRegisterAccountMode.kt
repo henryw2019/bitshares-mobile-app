@@ -45,7 +45,7 @@ class FragmentRegisterAccountMode : Fragment() {
         }
     }
 
-    private fun onRegisterClicked(account_name: String, password: String, confirm_password: String) {
+    private fun onRegisterClicked(account_name: String, password: String, confirm_password: String, refcode: String) {
         //  检测参数有效性
         if (!Utils.isValidBitsharesAccountName(account_name)) {
             showToast(R.string.kLoginSubmitTipsAccountFmtIncorrect.xmlstring(_ctx!!))
@@ -61,13 +61,13 @@ class FragmentRegisterAccountMode : Fragment() {
         }
 
         //  --- 开始注册 ---
-        val mask = ViewMesk(R.string.nameRequesting.xmlstring(this.activity!!), this.activity!!)
+        val mask = ViewMask(R.string.kTipsBeRequesting.xmlstring(this.activity!!), this.activity!!)
         mask.show()
         val chainMgr = ChainObjectManager.sharedChainObjectManager()
         val username = account_name.toLowerCase()
         //  1、查询名字是否被占用。
         chainMgr.isAccountExistOnBlockChain(username).then {
-            if (it as Boolean) {
+            if (it != null && it as Boolean) {
                 mask.dismiss()
                 showToast(R.string.kLoginSubmitTipsAccountAlreadyExist.xmlstring(_ctx!!))
                 return@then null
@@ -77,14 +77,19 @@ class FragmentRegisterAccountMode : Fragment() {
             val seed_active = "${username}active${password}"
             val owner_key = OrgUtils.genBtsAddressFromPrivateKeySeed(seed_owner)!!
             val active_key = OrgUtils.genBtsAddressFromPrivateKeySeed(seed_active)!!
-            val args = jsonObjectfromKVS("account_name", username, "owner_key", owner_key, "active_key", active_key, "memo_key", active_key, "chid", kAppChannelID)
+            val args = jsonObjectfromKVS("account_name", username,
+                    "owner_key", owner_key,
+                    "active_key", active_key,
+                    "memo_key", active_key,
+                    "chid", kAppChannelID,
+                    "referrer_code", refcode)
             OrgUtils.asyncPost(chainMgr.getFinalFaucetURL(), args).then {
                 val response = it as JSONObject
                 //  注册失败
                 if (response.getInt("status") != 0) {
                     mask.dismiss()
                     //  [统计]
-                    fabricLogCustom("faucetFailed", response)
+                    btsppLogCustom("faucetFailed", response)
                     activity!!.showFaucetRegisterError(response)
                     return@then null
                 }
@@ -104,7 +109,7 @@ class FragmentRegisterAccountMode : Fragment() {
                     val unlockInfos = WalletManager.sharedWalletManager().unLock(password, _ctx!!)
                     assert(unlockInfos.getBoolean("unlockSuccess") && unlockInfos.optBoolean("haveActivePermission"))
                     //  [统计]
-                    fabricLogCustom("registerEvent", jsonObjectfromKVS("mode", AppCacheManager.EWalletMode.kwmPasswordOnlyMode.value, "desc", "password"))
+                    btsppLogCustom("registerEvent", jsonObjectfromKVS("mode", AppCacheManager.EWalletMode.kwmPasswordOnlyMode.value, "desc", "password"))
                     showToast(R.string.kLoginTipsRegFullOK.xmlstring(_ctx!!))
                     activity!!.goTo(ActivityIndexMy::class.java, true, back = true)
                     return@then null
@@ -117,12 +122,12 @@ class FragmentRegisterAccountMode : Fragment() {
                 return@then null
             }.catch {
                 mask.dismiss()
-                showToast(_ctx!!.resources.getString(R.string.nameNetworkException))
+                showToast(_ctx!!.resources.getString(R.string.tip_network_error))
             }
             return@then null
         }.catch {
             mask.dismiss()
-            showToast(_ctx!!.resources.getString(R.string.nameNetworkException))
+            showToast(_ctx!!.resources.getString(R.string.tip_network_error))
         }
     }
 
@@ -135,10 +140,15 @@ class FragmentRegisterAccountMode : Fragment() {
             val account_name = view.findViewById<EditText>(R.id.tf_account_name).text.toString()
             val password = view.findViewById<EditText>(R.id.tf_password).text.toString()
             val confirm_password = view.findViewById<EditText>(R.id.tf_confirm_password).text.toString()
-            onRegisterClicked(account_name, password, confirm_password)
+            val refcode = view.findViewById<EditText>(R.id.tf_refcode).text.toString()
+            onRegisterClicked(account_name, password, confirm_password, refcode)
         }
-        view.findViewById<ImageView>(R.id.tip_account_name).setOnClickListener { UtilsAlert.showMessageBox(activity!!, R.string.tipsFormatAccount.xmlstring(_ctx!!)) }
-        view.findViewById<ImageView>(R.id.tip_password).setOnClickListener { UtilsAlert.showMessageBox(activity!!, R.string.tipsFormatPassword.xmlstring(_ctx!!)) }
+        view.findViewById<ImageView>(R.id.tip_account_name).setOnClickListener { UtilsAlert.showMessageBox(activity!!, R.string.kLoginRegTipsAccountFormat.xmlstring(_ctx!!)) }
+        view.findViewById<ImageView>(R.id.tip_password).setOnClickListener { UtilsAlert.showMessageBox(activity!!, R.string.kLoginRegTipsAccountPasswordFormat.xmlstring(_ctx!!)) }
+        view.findViewById<ImageView>(R.id.tip_refcode).setOnClickListener {
+            btsppLogCustom("qa_tip_click", jsonObjectfromKVS("qa", "qa_refcode"))
+            activity!!.goToWebView(_ctx!!.resources.getString(R.string.kVcTitleWhatIsRefcode), "https://btspp.io/qam.html#qa_refcode")
+        }
         return view
     }
 

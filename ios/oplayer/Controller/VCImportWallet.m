@@ -79,8 +79,8 @@
         [fileManager createDirectoryAtPath:_importDir withIntermediateDirectories:YES attributes:nil error:&error];
         if (error){
             //  [统计]
-            [Answers logCustomEventWithName:@"system_error"
-                           customAttributes:@{@"message":[NSString stringWithFormat:@"createDirectoryAtPath %@", error]}];
+            [OrgUtils logEvents:@"system_error"
+                           params:@{@"message":[NSString stringWithFormat:@"createDirectoryAtPath %@", error]}];
             NSLog(@"createDirectoryAtPath error:%@", error);
             tip_message = NSLocalizedString(@"kLoginTipsImportInitError", @"发生未知错误，不能导入钱包，请稍后再试。");
         }else{
@@ -280,12 +280,13 @@
         [[UIAlertViewManager sharedUIAlertViewManager] showInputBox:NSLocalizedString(@"kLoginTipsImportWalletTitle", @"导入钱包")
                                                           withTitle:nil
                                                         placeholder:NSLocalizedString(@"unlockTipsPleaseInputWalletPassword", @"请输入钱包密码")
+                                                         ispassword:YES
                                                                  ok:NSLocalizedString(@"kLoginBtnImportNow", @"立即导入")
                                                          completion:^(NSInteger buttonIndex, NSString *tfvalue) {
-            if (buttonIndex != 0){
-                [self processImportWalletCore:tfvalue fileitem:item];
-            }
-        }];
+                                                             if (buttonIndex != 0){
+                                                                 [self processImportWalletCore:tfvalue fileitem:item];
+                                                             }
+                                                         }];
     }];
 }
 
@@ -385,10 +386,9 @@
             //  导入成功 直接解锁。
             id unlockInfos = [walletMgr unLock:wallet_password];
             assert(unlockInfos &&
-                   [[unlockInfos objectForKey:@"unlockSuccess"] boolValue] &&
-                   [[unlockInfos objectForKey:@"haveActivePermission"] boolValue]);
+                   [[unlockInfos objectForKey:@"unlockSuccess"] boolValue]);
             //  [统计]
-            [Answers logCustomEventWithName:@"loginEvent" customAttributes:@{@"mode":@(kwmFullWalletMode), @"desc":@"wallet"}];
+            [OrgUtils logEvents:@"loginEvent" params:@{@"mode":@(kwmFullWalletMode), @"desc":@"wallet"}];
             
             //  返回之前先关闭webserver
             [self stopWebServer];

@@ -16,15 +16,69 @@
  */
 void __fowallet_printf(const char *format, ...)
 {
-    va_list ap;
-    va_start(ap, format);
-    __android_log_vprint(ANDROID_LOG_DEBUG, "fowallet", format, ap);
-    va_end(ap);
+    va_list ap;
+    va_start(ap, format);
+    __android_log_vprint(ANDROID_LOG_DEBUG, "fowallet", format, ap);
+    va_end(ap);
 }
 
 /**
  *  计算各种 hash 摘要
  */
+JNIEXPORT jbyteArray
+java_jni_entry_rmd160(JNIEnv* env, jobject self, 
+    jbyteArray buffer)
+{
+    //  检查参数
+    assert(buffer);
+    if (!buffer){
+        return NULL;
+    }
+
+    //  获取数据
+    jbyte* buffer_ptr = (*env)->GetByteArrayElements(env, buffer, 0);
+    jsize buffer_size = (*env)->GetArrayLength(env, buffer);
+
+    //  调用API
+    unsigned char digest20[20];
+    rmd160((const unsigned char*)buffer_ptr, (const size_t)buffer_size, digest20);
+
+    //  释放参数数据
+    (*env)->ReleaseByteArrayElements(env, buffer, buffer_ptr, JNI_ABORT);
+
+    //  返回
+    jbyteArray retv = (*env)->NewByteArray(env, sizeof(digest20));
+    (*env)->SetByteArrayRegion(env, retv, 0, sizeof(digest20), (const jbyte*)digest20);
+    return retv;
+}
+
+JNIEXPORT jbyteArray
+java_jni_entry_sha1(JNIEnv* env, jobject self, 
+    jbyteArray buffer)
+{
+    //  检查参数
+    assert(buffer);
+    if (!buffer){
+        return NULL;
+    }
+
+    //  获取数据
+    jbyte* buffer_ptr = (*env)->GetByteArrayElements(env, buffer, 0);
+    jsize buffer_size = (*env)->GetArrayLength(env, buffer);
+
+    //  调用API
+    unsigned char digest20[20];
+    sha1((const unsigned char*)buffer_ptr, (const size_t)buffer_size, digest20);
+
+    //  释放参数数据
+    (*env)->ReleaseByteArrayElements(env, buffer, buffer_ptr, JNI_ABORT);
+
+    //  返回
+    jbyteArray retv = (*env)->NewByteArray(env, sizeof(digest20));
+    (*env)->SetByteArrayRegion(env, retv, 0, sizeof(digest20), (const jbyte*)digest20);
+    return retv;
+}
+
 JNIEXPORT jbyteArray
 java_jni_entry_sha256(JNIEnv* env, jobject self, 
     jbyteArray buffer)
@@ -373,16 +427,18 @@ java_jni_entry_bts_private_key_to_wif(JNIEnv* env, jobject self,
  */
 JNIEXPORT jbyteArray
 java_jni_entry_bts_public_key_to_address(JNIEnv* env, jobject self,
-    jbyteArray public_key)
+    jbyteArray public_key, jbyteArray address_prefix)
 {
     //  检查参数
-    if (!public_key){
+    if (!public_key || !address_prefix){
         return NULL;
     }
 
     //  获取数据
     jbyte* public_key_ptr = (*env)->GetByteArrayElements(env, public_key, 0);
     jsize public_key_size = (*env)->GetArrayLength(env, public_key);
+    jbyte* address_prefix_ptr = (*env)->GetByteArrayElements(env, address_prefix, 0);
+    jsize address_prefix_size = (*env)->GetArrayLength(env, address_prefix);
 
     //  调用API
     unsigned char output[51+10] = {0, };
@@ -390,10 +446,11 @@ java_jni_entry_bts_public_key_to_address(JNIEnv* env, jobject self,
     secp256k1_pubkey public_key_s = {0, };
     assert(public_key_size == sizeof(public_key_s.data));
     memcpy(&public_key_s.data, public_key_ptr, sizeof(public_key_s.data));
-    __bts_public_key_to_address(&public_key_s, output, &output_size);
+    __bts_public_key_to_address(&public_key_s, output, &output_size, (const char*)address_prefix_ptr, (const size_t)address_prefix_size);
 
     //  释放参数数据
     (*env)->ReleaseByteArrayElements(env, public_key, public_key_ptr, JNI_ABORT);
+    (*env)->ReleaseByteArrayElements(env, address_prefix, address_prefix_ptr, JNI_ABORT);
 
     //  返回
     jbyteArray retv = (*env)->NewByteArray(env, output_size);
@@ -407,25 +464,28 @@ java_jni_entry_bts_public_key_to_address(JNIEnv* env, jobject self,
  */    
 JNIEXPORT jbyteArray
 java_jni_entry_bts_gen_address_from_private_key32(JNIEnv* env, jobject self,
-    jbyteArray private_key32)
+    jbyteArray private_key32, jbyteArray address_prefix)
 {
     //  检查参数
-    if (!private_key32){
+    if (!private_key32 || !address_prefix){
         return NULL;
     }
 
     //  获取数据
     jbyte* private_key32_ptr = (*env)->GetByteArrayElements(env, private_key32, 0);
     jsize private_key32_size = (*env)->GetArrayLength(env, private_key32);
+    jbyte* address_prefix_ptr = (*env)->GetByteArrayElements(env, address_prefix, 0);
+    jsize address_prefix_size = (*env)->GetArrayLength(env, address_prefix);
     // assert(private_key32_size == 32);
 
     //  调用API
     unsigned char output[51+10] = {0, };
     size_t output_size = sizeof(output);
-    bool result = __bts_gen_address_from_private_key32((const unsigned char*)private_key32_ptr, output, &output_size);
+    bool result = __bts_gen_address_from_private_key32((const unsigned char*)private_key32_ptr, output, &output_size, (const char*)address_prefix_ptr, (const size_t)address_prefix_size);
 
     //  释放参数数据
     (*env)->ReleaseByteArrayElements(env, private_key32, private_key32_ptr, JNI_ABORT);
+    (*env)->ReleaseByteArrayElements(env, address_prefix, address_prefix_ptr, JNI_ABORT);
 
     //  返回
     if (!result){
@@ -477,23 +537,26 @@ java_jni_entry_bts_gen_private_key_from_wif_privatekey(JNIEnv* env, jobject self
  */    
 JNIEXPORT jbyteArray
 java_jni_entry_bts_gen_public_key_from_b58address(JNIEnv* env, jobject self,
-    jbyteArray address)
+    jbyteArray address, jbyteArray address_prefix)
 {
     //  检查参数
-    if (!address){
+    if (!address || !address_prefix){
         return NULL;
     }
 
     //  获取数据
     jbyte* address_ptr = (*env)->GetByteArrayElements(env, address, 0);
     jsize address_size = (*env)->GetArrayLength(env, address);
+    jbyte* address_prefix_ptr = (*env)->GetByteArrayElements(env, address_prefix, 0);
+    jsize address_prefix_size = (*env)->GetArrayLength(env, address_prefix);
 
     //  调用API
     secp256k1_pubkey pubkey = {0, };
-    bool result = __bts_gen_public_key_from_b58address((const unsigned char*)address_ptr, (const size_t)address_size, &pubkey);
+    bool result = __bts_gen_public_key_from_b58address((const unsigned char*)address_ptr, (const size_t)address_size, (const size_t)address_prefix_size, &pubkey);
 
     //  释放参数数据
     (*env)->ReleaseByteArrayElements(env, address, address_ptr, JNI_ABORT);
+    (*env)->ReleaseByteArrayElements(env, address_prefix, address_prefix_ptr, JNI_ABORT);
 
     //  返回
     if (!result){
@@ -504,6 +567,69 @@ java_jni_entry_bts_gen_public_key_from_b58address(JNIEnv* env, jobject self,
     jbyteArray retv = (*env)->NewByteArray(env, sizeof(pubkey.data));
     (*env)->SetByteArrayRegion(env, retv, 0, sizeof(pubkey.data), (const jbyte*)pubkey.data);
 
+    return retv;
+}
+
+/**
+ *  加法调整公私钥
+ */
+JNIEXPORT jbyteArray
+java_jni_entry_bts_privkey_tweak_add(JNIEnv* env, jobject self,
+    jbyteArray seckey, jbyteArray tweak)
+{
+    //  检查参数
+    if (!seckey || !tweak){
+        return NULL;
+    }
+
+    //  获取数据
+    jbyte* seckey_ptr = (*env)->GetByteArrayElements(env, seckey, 0);
+    jsize seckey_size = (*env)->GetArrayLength(env, seckey);
+    jbyte* tweak_ptr = (*env)->GetByteArrayElements(env, tweak, 0);
+
+    jbyteArray retv = NULL;
+    if (__bts_privkey_tweak_add((unsigned char*)seckey_ptr, (const unsigned char*)tweak_ptr)) {
+        retv = (*env)->NewByteArray(env, seckey_size);
+        (*env)->SetByteArrayRegion(env, retv, 0, seckey_size, (const jbyte*)seckey_ptr);
+    }
+
+    //  释放参数数据
+    (*env)->ReleaseByteArrayElements(env, seckey, seckey_ptr, JNI_ABORT);
+    (*env)->ReleaseByteArrayElements(env, tweak, tweak_ptr, JNI_ABORT);
+
+    return retv;
+}
+
+JNIEXPORT jbyteArray
+java_jni_entry_bts_pubkey_tweak_add(JNIEnv* env, jobject self,
+    jbyteArray pubkey, jbyteArray tweak)
+{
+    //  检查参数
+    if (!pubkey || !tweak){
+        return NULL;
+    }
+
+    //  获取数据
+    jbyte* pubkey_ptr = (*env)->GetByteArrayElements(env, pubkey, 0);
+    jsize pubkey_size = (*env)->GetArrayLength(env, pubkey);
+    jbyte* tweak_ptr = (*env)->GetByteArrayElements(env, tweak, 0);
+
+    //  构造publick key结构体
+    secp256k1_pubkey public_key_s = {0, };
+    assert(pubkey_size == sizeof(public_key_s.data));
+    memcpy(&public_key_s.data, pubkey_ptr, sizeof(public_key_s.data));
+
+    jbyteArray retv = NULL;
+    if (__bts_pubkey_tweak_add(&public_key_s, (const unsigned char*)tweak_ptr)) {
+        //  拷贝整个结构体
+        retv = (*env)->NewByteArray(env, sizeof(public_key_s.data));
+        (*env)->SetByteArrayRegion(env, retv, 0, sizeof(public_key_s.data), (const jbyte*)public_key_s.data);
+    }
+
+    //  释放参数数据
+    (*env)->ReleaseByteArrayElements(env, pubkey, pubkey_ptr, JNI_ABORT);
+    (*env)->ReleaseByteArrayElements(env, tweak, tweak_ptr, JNI_ABORT);
+    
     return retv;
 }
 
@@ -649,7 +775,14 @@ java_jni_entry_bts_sign_buffer(JNIEnv* env, jobject self,
     return retv;
 }
 
-// #if USE_JNI_REGISTER
+JNIEXPORT jbyteArray
+java_jni_entry_rmd160(JNIEnv* env, jobject self, 
+    jbyteArray buffer);
+
+JNIEXPORT jbyteArray
+java_jni_entry_sha1(JNIEnv* env, jobject self, 
+    jbyteArray buffer);
+
 JNIEXPORT jbyteArray
 java_jni_entry_sha256(JNIEnv* env, jobject self, 
     jbyteArray buffer);
@@ -688,11 +821,11 @@ java_jni_entry_bts_private_key_to_wif(JNIEnv* env, jobject self,
 
 JNIEXPORT jbyteArray
 java_jni_entry_bts_public_key_to_address(JNIEnv* env, jobject self,
-    jbyteArray public_key);
+    jbyteArray public_key, jbyteArray address_prefix);
 
 JNIEXPORT jbyteArray
 java_jni_entry_bts_gen_address_from_private_key32(JNIEnv* env, jobject self,
-    jbyteArray private_key32);
+    jbyteArray private_key32, jbyteArray address_prefix);
 
 JNIEXPORT jbyteArray
 java_jni_entry_bts_gen_private_key_from_wif_privatekey(JNIEnv* env, jobject self,
@@ -700,7 +833,15 @@ java_jni_entry_bts_gen_private_key_from_wif_privatekey(JNIEnv* env, jobject self
 
 JNIEXPORT jbyteArray
 java_jni_entry_bts_gen_public_key_from_b58address(JNIEnv* env, jobject self,
-    jbyteArray address);
+    jbyteArray address, jbyteArray address_prefix);
+
+JNIEXPORT jbyteArray
+java_jni_entry_bts_privkey_tweak_add(JNIEnv* env, jobject self,
+    jbyteArray seckey, jbyteArray tweak);
+
+JNIEXPORT jbyteArray
+java_jni_entry_bts_pubkey_tweak_add(JNIEnv* env, jobject self,
+    jbyteArray pubkey, jbyteArray tweak);
 
 JNIEXPORT jbyteArray
 java_jni_entry_bts_save_wallet(JNIEnv* env, jobject self,
@@ -716,6 +857,8 @@ java_jni_entry_bts_sign_buffer(JNIEnv* env, jobject self,
 
 static JNINativeMethod jni_methods_table[] = 
 {
+    {"rmd160",                                  "([B)[B",                   (void*)java_jni_entry_rmd160},
+    {"sha1",                                    "([B)[B",                   (void*)java_jni_entry_sha1},
     {"sha256",                                  "([B)[B",                   (void*)java_jni_entry_sha256},
     {"sha512",                                  "([B)[B",                   (void*)java_jni_entry_sha512},
     {"bts_aes256_encrypt_to_hex",               "([B[B)[B",                 (void*)java_jni_entry_bts_aes256_encrypt_to_hex},
@@ -725,33 +868,15 @@ static JNINativeMethod jni_methods_table[] =
     {"bts_gen_public_key_compressed",           "([B)[B",                   (void*)java_jni_entry_bts_gen_public_key_compressed},
     {"bts_gen_public_key_uncompressed",         "([B)[B",                   (void*)java_jni_entry_bts_gen_public_key_uncompressed},
     {"bts_private_key_to_wif",                  "([B)Ljava/lang/String;",   (void*)java_jni_entry_bts_private_key_to_wif},
-    {"bts_public_key_to_address",               "([B)[B",                   (void*)java_jni_entry_bts_public_key_to_address},
-    {"bts_gen_address_from_private_key32",      "([B)[B",                   (void*)java_jni_entry_bts_gen_address_from_private_key32},
+    {"bts_public_key_to_address",               "([B[B)[B",                 (void*)java_jni_entry_bts_public_key_to_address},
+    {"bts_gen_address_from_private_key32",      "([B[B)[B",                 (void*)java_jni_entry_bts_gen_address_from_private_key32},
     {"bts_gen_private_key_from_wif_privatekey", "([B)[B",                   (void*)java_jni_entry_bts_gen_private_key_from_wif_privatekey},
-    {"bts_gen_public_key_from_b58address",      "([B)[B",                   (void*)java_jni_entry_bts_gen_public_key_from_b58address},
+    {"bts_gen_public_key_from_b58address",      "([B[B)[B",                 (void*)java_jni_entry_bts_gen_public_key_from_b58address},
+    {"bts_privkey_tweak_add",                   "([B[B)[B",                 (void*)java_jni_entry_bts_privkey_tweak_add},
+    {"bts_pubkey_tweak_add",                    "([B[B)[B",                 (void*)java_jni_entry_bts_pubkey_tweak_add},
     {"bts_save_wallet",                         "([B[B[B)[B",               (void*)java_jni_entry_bts_save_wallet},
     {"bts_load_wallet",                         "([B[B)[B",                 (void*)java_jni_entry_bts_load_wallet},
     {"bts_sign_buffer",                         "([B[B)[B",                 (void*)java_jni_entry_bts_sign_buffer},
-
-    // // TODO:参数核对
-    // {__CTM_FMD5Q(hash32), "(Ljava/lang/String;)J", (void*)Java_com_ffgamestudio_fast12306_plugin_SimulateiOSUIPlugin_hash32},
-    // {__CTM_FMD5Q(fShowMsgBoxFull), "(Ljava/lang/String;Ljava/lang/String;I)Ljava/lang/String;", (void*)Java_com_ffgamestudio_fast12306_plugin_SimulateiOSUIPlugin_fShowMsgBoxFull},
-    // {__CTM_FMD5Q(fShowMsgBoxOkAndCancel), "(Ljava/lang/String;I)Ljava/lang/String;", (void*)Java_com_ffgamestudio_fast12306_plugin_SimulateiOSUIPlugin_fShowMsgBoxOkAndCancel},
-    // {__CTM_FMD5Q(fShowMsgBoxWarning), "(Ljava/lang/String;)Ljava/lang/String;", (void*)Java_com_ffgamestudio_fast12306_plugin_SimulateiOSUIPlugin_fShowMsgBoxWarning},
-    // {__CTM_FMD5Q(fShowMsgBoxReview), "(Ljava/lang/String;)Ljava/lang/String;", (void*)Java_com_ffgamestudio_fast12306_plugin_SimulateiOSUIPlugin_fShowMsgBoxReview},
-    // {__CTM_FMD5Q(load), "(Ljava/lang/Object;Ljava/lang/String;Z)Z", (void*)Java_com_ffgamestudio_fast12306_plugin_SimulateiOSUIPlugin_load},
-    // {__CTM_FMD5Q(captcha), "(Ljava/lang/String;)Ljava/lang/String;", (void*)Java_com_ffgamestudio_fast12306_plugin_SimulateiOSUIPlugin_captcha},
-    // {__CTM_FMD5Q(init), "(Ljava/lang/Object;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V", (void*)Java_com_ffgamestudio_fast12306_plugin_SimulateiOSUIPlugin_init},
-    // {__CTM_FMD5Q(savefile), "(Ljava/lang/String;[B)Z", (void*)Java_com_ffgamestudio_fast12306_plugin_SimulateiOSUIPlugin_savefile},
-    // {__CTM_FMD5Q(loadfile), "(Ljava/lang/Object;Ljava/lang/String;ZZ)Ljava/lang/String;", (void*)Java_com_ffgamestudio_fast12306_plugin_SimulateiOSUIPlugin_loadfile},
-    // {__CTM_FMD5Q(deletefile), "(Ljava/lang/String;)Z", (void*)Java_com_ffgamestudio_fast12306_plugin_SimulateiOSUIPlugin_deletefile},
-    // {__CTM_FMD5Q(savesecfile), "(Ljava/lang/String;[B)Z", (void*)Java_com_ffgamestudio_fast12306_plugin_SimulateiOSUIPlugin_savesecfile},
-    // {__CTM_FMD5Q(loadsecfile), "(Ljava/lang/String;)[B", (void*)Java_com_ffgamestudio_fast12306_plugin_SimulateiOSUIPlugin_loadsecfile},
-    // {__CTM_FMD5Q(deletesecfile), "(Ljava/lang/String;)Z", (void*)Java_com_ffgamestudio_fast12306_plugin_SimulateiOSUIPlugin_deletesecfile},
-    // {__CTM_FMD5Q(check), "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Z", (void*)Java_com_ffgamestudio_fast12306_plugin_SimulateiOSUIPlugin_check},
-    // {__CTM_FMD5Q(crash), "()J", (void*)Java_com_ffgamestudio_fast12306_plugin_SimulateiOSUIPlugin_crash},
-    // {__CTM_FMD5Q(unzip), "(Ljava/lang/String;Ljava/lang/String;)Z", (void*)Java_com_ffgamestudio_fast12306_plugin_SimulateiOSUIPlugin_unzip},
-    // {__CTM_FMD5Q(mynativebase64decode), "(Ljava/lang/String;)Ljava/lang/String;", (void*)Java_com_ffgamestudio_fast12306_plugin_SimulateiOSUIPlugin_mynativebase64decode},
 }; 
 
 static int jniRegisterNativeMethods(JNIEnv* env, const char* className, const JNINativeMethod* gMethods, int numMethods)  
@@ -783,11 +908,6 @@ static int registerNativeMethods(JNIEnv *env)
  // so入口
 jint JNI_OnLoad(JavaVM* vm, void* reserved)
 {
-// #if ANTI_DEBUG
-//     //  [加固] 禁用调试器
-//     disable_debugger("loaded...");
-// #endif  //  ANTI_DEBUG
-
     JNIEnv* env;  
     if ((*vm)->GetEnv(vm, (void**)(&env), JNI_VERSION_1_4) != JNI_OK)  
     {  
@@ -802,5 +922,4 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved)
 
     return JNI_VERSION_1_4;  
 }
-// #endif //USE_JNI_REGISTER
 

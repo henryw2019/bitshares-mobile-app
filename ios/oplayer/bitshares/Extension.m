@@ -59,14 +59,6 @@
 
 @implementation NSString (Format)
 
-/**
- *  移除逗号
- */
-- (NSString*)removeCommaCharacter
-{
-    return [[self componentsSeparatedByString:@","] componentsJoinedByString:@""];
-}
-
 - (unsigned long long)unsignedLongLongValue
 {
     return [[[[NSNumberFormatter alloc] init] numberFromString:self] unsignedLongLongValue];
@@ -101,6 +93,15 @@
  *  仿ruby操作方法扩展
  */
 @implementation NSArray (RubyFilter)
+
+- (void)ruby_each_with_index:(RubyFilterEachWithIndexFunction)func
+{
+    NSInteger idx = 0;
+    for (id obj in self) {
+        func(obj, idx);
+        ++idx;
+    }
+}
 
 - (NSArray*)ruby_map:(RubyFilterMapFunction)func
 {

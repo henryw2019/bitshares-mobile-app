@@ -2,10 +2,7 @@ package com.btsplusplus.fowallet
 
 import android.os.Bundle
 import android.widget.TextView
-import bitshares.Promise
-import bitshares.Utils
-import bitshares.jsonObjectfromKVS
-import bitshares.xmlstring
+import bitshares.*
 import com.fowallet.walletcore.bts.WalletManager
 import kotlinx.android.synthetic.main.activity_index_my.*
 
@@ -57,7 +54,14 @@ class ActivityIndexMy : BtsppActivity() {
         }
 
         layout_setting_from_my.setOnClickListener {
-            goTo(ActivitySetting::class.java, true)
+            val saveCurrLangCode = LangManager.sharedLangManager().currLangCode
+            val result_promise = Promise()
+            goTo(ActivitySetting::class.java, true, args = jsonObjectfromKVS("result_promise", result_promise))
+            result_promise.then {
+                if (LangManager.sharedLangManager().currLangCode != saveCurrLangCode) {
+                    recreate()
+                }
+            }
         }
 
         //  [待处提案] 需要判断登录
@@ -71,12 +75,12 @@ class ActivityIndexMy : BtsppActivity() {
         layout_my_wallet_and_muti_signature.setOnClickListener {
             guardWalletExist {
                 if (WalletManager.sharedWalletManager().isPasswordMode()) {
-                    alerShowMessageConfirm(resources.getString(R.string.registerLoginPageWarmTip), R.string.kLblTipsPasswordModeNotSupportMultiSign.xmlstring(this)).then {
-                        if (it as Boolean) {
+                    alerShowMessageConfirm(resources.getString(R.string.kWarmTips), R.string.kLblTipsPasswordModeNotSupportMultiSign.xmlstring(this)).then {
+                        if (it != null && it as Boolean) {
                             val result_promise = Promise()
                             goTo(ActivityUpgradeToWalletMode::class.java, true, args = jsonObjectfromKVS("result_promise", result_promise))
                             result_promise.then {
-                                if (it as Boolean) {
+                                if (it != null && it as Boolean) {
                                     goTo(ActivityWalletManager::class.java, true)
                                 }
                             }
@@ -88,13 +92,6 @@ class ActivityIndexMy : BtsppActivity() {
                 }
             }
         }
-
-//        //  [未解冻资金] Todo 需要登录判断
-//        layout_unfreeze_amount_of_my.setOnClickListener {
-//            guardWalletExist {
-//                goTo(ActivityVestingBalance::class.java, true)
-//            }
-//        }
 
         //  我的资产：需要钱包存在
         layout_my_assets_of_my.setOnClickListener {
@@ -112,7 +109,7 @@ class ActivityIndexMy : BtsppActivity() {
         }
 
         layout_faq_from_my.setOnClickListener {
-            goToWebView(resources.getString(R.string.myPageQA), "http://btspp.io/qa.html")
+            goToWebView(resources.getString(R.string.faq), "https://btspp.io/qa.html")
         }
 
         layout_about_from_my.setOnClickListener {
@@ -127,19 +124,19 @@ class ActivityIndexMy : BtsppActivity() {
             //  第一行
             val name = account.getString("name")
             if (walletMgr.isLocked()) {
-                findViewById<TextView>(R.id.label_txt_accoutname).text = "${name}(${R.string.myPageLabelAccountLocked.xmlstring(this)})"
+                findViewById<TextView>(R.id.label_txt_accoutname).text = "${name}(${R.string.kLblAccountLocked.xmlstring(this)})"
             } else {
-                findViewById<TextView>(R.id.label_txt_accoutname).text = "${name}(${R.string.myPageLabelAccountUnlocked.xmlstring(this)})"
+                findViewById<TextView>(R.id.label_txt_accoutname).text = "${name}(${R.string.kLblAccountUnlocked.xmlstring(this)})"
             }
             //  第二行
             if (Utils.isBitsharesVIP(account.optString("membership_expiration_date", ""))) {
-                findViewById<TextView>(R.id.label_txt_status).text = "${R.string.myPageLabelMembership.xmlstring(this)}${R.string.myPageLabelMembershipLifetime.xmlstring(this)}"
+                findViewById<TextView>(R.id.label_txt_status).text = "${R.string.kLblMembership.xmlstring(this)}${R.string.kLblMembershipLifetime.xmlstring(this)}"
             } else {
-                findViewById<TextView>(R.id.label_txt_status).text = "${R.string.myPageLabelMembership.xmlstring(this)}${R.string.myPageLabelMembershipBasic.xmlstring(this)}"
+                findViewById<TextView>(R.id.label_txt_status).text = "${R.string.kLblMembership.xmlstring(this)}${R.string.kLblMembershipBasic.xmlstring(this)}"
             }
         } else {
-            findViewById<TextView>(R.id.label_txt_accoutname).text = R.string.nameAccountManager.xmlstring(this)
-            findViewById<TextView>(R.id.label_txt_status).text = R.string.myPageClickToLogin.xmlstring(this)
+            findViewById<TextView>(R.id.label_txt_accoutname).text = R.string.kAccountManagement.xmlstring(this)
+            findViewById<TextView>(R.id.label_txt_status).text = R.string.tip_click_to_login.xmlstring(this)
         }
     }
 }

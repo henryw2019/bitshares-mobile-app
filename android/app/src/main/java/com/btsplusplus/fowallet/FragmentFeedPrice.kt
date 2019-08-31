@@ -45,7 +45,7 @@ class FragmentFeedPrice : BtsppFragment() {
      */
     fun onQueryFeedInfoResponsed(asset: JSONObject, infos: JSONObject, data_array: JSONArray, active_witnesses: JSONArray) {
         //  REMARK：数据返回的时候界面尚未创建完毕先保存
-        if (_currentView == null) {
+        if (_currentView == null || this.activity == null) {
             _waiting_draw_infos = jsonObjectfromKVS("asset", asset, "infos", infos, "data_array", data_array, "active_witnesses", active_witnesses)
             return
         }
@@ -65,7 +65,7 @@ class FragmentFeedPrice : BtsppFragment() {
 
         //  刷新UI
         //  喂价
-        _currentView!!.findViewById<TextView>(R.id.label_txt_curr_feed).text = "${_ctx!!.resources.getString(R.string.debtPageCurrentFeedPrice)} ${n_curr_feed_price.toPriceAmountString()}"
+        _currentView!!.findViewById<TextView>(R.id.label_txt_curr_feed).text = "${_ctx!!.resources.getString(R.string.kVcFeedCurrentFeedPrice)} ${n_curr_feed_price!!.toPriceAmountString()}"
 
         //  列表
         val line_height = 28.0f
@@ -88,7 +88,7 @@ class FragmentFeedPrice : BtsppFragment() {
             val feed_data = feed_info_ary.getJSONObject(1)
 
             val name = chainMgr.getChainObjectByID(publisher_account_id).getString("name")
-            val n_price = OrgUtils.calcPriceFromPriceObject(feed_data.getJSONObject("settlement_price"), short_backing_asset_id, sba_asset_precision, asset_precision)
+            val n_price = OrgUtils.calcPriceFromPriceObject(feed_data.getJSONObject("settlement_price"), short_backing_asset_id, sba_asset_precision, asset_precision)!!
             val change = n_price.divide(n_curr_feed_price, 4, BigDecimal.ROUND_DOWN).subtract(BigDecimal.ONE).scaleByPowerOfTen(2)
 
             list.add(jsonObjectfromKVS("name", name, "price", n_price, "diff", change, "date", publish_date))
@@ -118,7 +118,7 @@ class FragmentFeedPrice : BtsppFragment() {
 
         //  name
         val tv1 = ViewUtils.createTextView(ctx, name
-                ?: R.string.feedPricePageTitleName.xmlstring(_ctx!!), 13f, color, false)
+                ?: R.string.kVcFeedWitnessName.xmlstring(_ctx!!), 13f, color, false)
         tv1.setSingleLine(true)
         tv1.maxLines = 1
         tv1.ellipsize = TextUtils.TruncateAt.END
@@ -130,7 +130,7 @@ class FragmentFeedPrice : BtsppFragment() {
 
         //  price
         val price_str = price?.toPlainString()
-                ?: (if (miss) "--" else R.string.feedPricePageTitlePrice.xmlstring(_ctx!!))
+                ?: (if (miss) "--" else R.string.kVcFeedPriceName.xmlstring(_ctx!!))
         val tv2 = ViewUtils.createTextView(ctx, price_str, 13f, color, false)
         tv2.setSingleLine(true)
         tv2.maxLines = 1
@@ -142,7 +142,7 @@ class FragmentFeedPrice : BtsppFragment() {
         tv2.layoutParams = tv2_params
 
         //  bias
-        var diffstr = R.string.feedPricePageTitleBiasRate.xmlstring(_ctx!!)
+        var diffstr = R.string.kVcFeedRate.xmlstring(_ctx!!)
         var diffcolor = color
         if (!title) {
             if (miss) {
@@ -170,7 +170,7 @@ class FragmentFeedPrice : BtsppFragment() {
         tv3.layoutParams = tv3_params
 
         //  publish date
-        val datestr = if (title) R.string.feedPricePageTitlePublishDate.xmlstring(ctx) else (if (miss) R.string.feedPricePageAgeNoPublish.xmlstring(ctx) else Utils.fmtFeedPublishDateString(_ctx!!, date))
+        val datestr = if (title) R.string.kVcFeedPublishDate.xmlstring(ctx) else (if (miss) R.string.kVcFeedNoData.xmlstring(ctx) else Utils.fmtFeedPublishDateString(_ctx!!, date))
         val tv4 = ViewUtils.createTextView(ctx, datestr, 13f, color, false)
         tv4.setSingleLine(true)
         tv4.maxLines = 1
@@ -195,8 +195,8 @@ class FragmentFeedPrice : BtsppFragment() {
         val v: View = inflater.inflate(R.layout.fragment_feed_price, container, false)
         v.findViewById<ImageView>(R.id.tip_link_feedprice).setOnClickListener {
             //  [统计]
-            fabricLogCustom("qa_tip_click", jsonObjectfromKVS("qa", "qa_feedprice"))
-            activity!!.goToWebView(_ctx!!.resources.getString(R.string.debtPageWhatIsFeedPrice), "http://btspp.io/qam.html#qa_feedprice")
+            btsppLogCustom("qa_tip_click", jsonObjectfromKVS("qa", "qa_feedprice"))
+            activity!!.goToWebView(_ctx!!.resources.getString(R.string.kVcTitleWhatIsFeedPrice), "https://btspp.io/qam.html#qa_feedprice")
         }
         _currentView = v
         //  refresh UI

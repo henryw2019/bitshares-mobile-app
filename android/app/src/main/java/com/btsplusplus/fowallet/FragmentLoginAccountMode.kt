@@ -65,29 +65,29 @@ class FragmentLoginAccountMode : Fragment() {
 
         //  TODO:检查参数有效性
         if (account_name.isEmpty()) {
-            showToast(_ctx!!.resources.getString(R.string.registerLoginPageAccountIsEmptyAndInputAgain))
+            showToast(_ctx!!.resources.getString(R.string.kLoginSubmitTipsAccountIsEmpty))
             return
         }
         if (password.isEmpty()) {
-            showToast(_ctx!!.resources.getString(R.string.registerLoginPagePwsIsEmptyAndInputAgain))
+            showToast(_ctx!!.resources.getString(R.string.kMsgPasswordCannotBeNull))
             return
         }
 
         //  正常登录才需要验证交易密码。
         if (_checkActivePermission && !Utils.isValidBitsharesWalletPassword(trade_password)) {
-            showToast(_ctx!!.resources.getString(R.string.registerLoginPageTradePwsFormatErrorAndInputAgain))
+            showToast(_ctx!!.resources.getString(R.string.kLoginSubmitTipsTradePasswordFmtIncorrect))
             return
         }
 
         //  开始请求
         val username = account_name.toLowerCase()
-        val mask = ViewMesk(R.string.nameRequesting.xmlstring(this.activity!!), this.activity!!)
+        val mask = ViewMask(R.string.kTipsBeRequesting.xmlstring(this.activity!!), this.activity!!)
         mask.show()
         ChainObjectManager.sharedChainObjectManager().queryFullAccountInfo(username).then {
             mask.dismiss()
             val full_data = it as? JSONObject
             if (full_data == null) {
-                showToast(_ctx!!.resources.getString(R.string.registerLoginPageAccountNameNotExistAndPleaseInputAgain))
+                showToast(_ctx!!.resources.getString(R.string.kLoginSubmitTipsAccountIsNotExist))
                 return@then null
             }
 
@@ -98,12 +98,15 @@ class FragmentLoginAccountMode : Fragment() {
             val active_seed = "${username}active${password}"
             val calc_bts_active_address = OrgUtils.genBtsAddressFromPrivateKeySeed(active_seed)!!
 
+            //  权限检查
             val status = WalletManager.calcPermissionStatus(account_active, jsonObjectfromKVS(calc_bts_active_address, true))
+            //  a、无任何权限，不导入。
             if (status == EAccountPermissionStatus.EAPS_NO_PERMISSION) {
                 showToast(R.string.kLoginSubmitTipsAccountPasswordIncorrect.xmlstring(_ctx!!))
                 return@then null
             }
-            if (status == EAccountPermissionStatus.EAPS_PARTIAL_PERMISSION) {
+            //  b、部分权限，仅在导入钱包可以，直接登录时不支持。
+            if (_checkActivePermission && status == EAccountPermissionStatus.EAPS_PARTIAL_PERMISSION) {
                 showToast(R.string.kLoginSubmitTipsAccountPasswordPermissionNotEnough.xmlstring(_ctx!!))
                 return@then null
             }
@@ -116,7 +119,7 @@ class FragmentLoginAccountMode : Fragment() {
                     val active_private_wif = OrgUtils.genBtsWifPrivateKey(active_seed.utf8String())
                     val owner_seed = "${username}owner${password}"
                     val owner_private_wif = OrgUtils.genBtsWifPrivateKey(owner_seed.utf8String())
-                    val full_wallet_bin = WalletManager.sharedWalletManager().genFullWalletData(activity!!, username, active_private_wif, owner_private_wif, null, trade_password)
+                    val full_wallet_bin = WalletManager.sharedWalletManager().genFullWalletData(activity!!, username, jsonArrayfrom(active_private_wif, owner_private_wif), trade_password)
                     assert(full_wallet_bin != null)
 
                     //  保存钱包信息
@@ -134,9 +137,9 @@ class FragmentLoginAccountMode : Fragment() {
                     assert(unlockInfos.getBoolean("unlockSuccess") && unlockInfos.optBoolean("haveActivePermission"))
                 }
                 //  [统计]
-                fabricLogCustom("loginEvent", jsonObjectfromKVS("mode", AppCacheManager.EWalletMode.kwmPasswordWithWallet.value, "desc", "password+wallet"))
+                btsppLogCustom("loginEvent", jsonObjectfromKVS("mode", AppCacheManager.EWalletMode.kwmPasswordWithWallet.value, "desc", "password+wallet"))
                 //  返回 - 登录成功
-                showToast(_ctx!!.resources.getString(R.string.registerLoginPageLoginSuccess))
+                showToast(_ctx!!.resources.getString(R.string.kLoginTipsLoginOK))
                 activity!!.finish()
             } else {
                 //  【导入到已有钱包】
@@ -189,8 +192,8 @@ class FragmentLoginAccountMode : Fragment() {
         }
         v.findViewById<ImageView>(R.id.tip_link_trading_password).setOnClickListener {
             //  [统计]
-            fabricLogCustom("qa_tip_click", jsonObjectfromKVS("qa", "qa_trading_password"))
-            activity!!.goToWebView(_ctx!!.resources.getString(R.string.registerLoginPageWhatIsTradePws), "http://btspp.io/qam.html#qa_trading_password")
+            btsppLogCustom("qa_tip_click", jsonObjectfromKVS("qa", "qa_trading_password"))
+            activity!!.goToWebView(_ctx!!.resources.getString(R.string.kVcTitleWhatIsTradePassowrd), "https://btspp.io/qam.html#qa_trading_password")
         }
         //  导入到已有钱包：隐藏交易密码。
         if (!_checkActivePermission) {

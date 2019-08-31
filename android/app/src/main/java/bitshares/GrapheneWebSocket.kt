@@ -2,8 +2,6 @@ package com.fowallet.walletcore.bts
 
 import bitshares.*
 import com.crashlytics.android.Crashlytics
-import com.orhanobut.logger.AndroidLogAdapter
-import com.orhanobut.logger.Logger
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URI
@@ -32,7 +30,6 @@ class GrapheneWebSocket {
     private var _subs: MutableMap<String, Any> = mutableMapOf()         //  订阅推送回调列表
     private var _unsub: MutableMap<String, Any> = mutableMapOf()        //  取消订阅
     private var _keepAliveTimer: Timer? = null
-    private var _keepAliveTimerTask: TimerTask? = null
     private var _send_life: Int = 0
     private var _recv_life: Int = 0
 
@@ -99,9 +96,6 @@ class GrapheneWebSocket {
         _keepaliveCb = keepaliveCb
         _api_list = api_list
         _auto_reconnect = true
-
-        // 初始化 Logger
-        Logger.addLogAdapter(AndroidLogAdapter())
 
         //  --- 开始初始化 ---
         reconnect()
@@ -298,7 +292,7 @@ class GrapheneWebSocket {
             //  移除第一个 callback 参数
             val sub_params_mutable = JSONArray()
             var idx = 0
-            for (obj in old_sub_params) {
+            for (obj in old_sub_params.forin<Any>()) {
                 if (idx != 0) {
                     sub_params_mutable.put(obj)
                 }
@@ -309,15 +303,14 @@ class GrapheneWebSocket {
 
 
         //  TODO:fowallet 取消订阅 unsubscribe_from_market unsubscribe_from_accounts
-//        Logger.d("[ApiCall] %s", method)
 
         //  序列化
-        var data = jsonObjectfromKVS("id", _cbId, "method", "call", "params", params)
+        val data = jsonObjectfromKVS("id", _cbId, "method", "call", "params", params)
 
         //  构造promise对象并发送数据
         _send_life = kGwsMaxSendLife
 
-        var p = Promise()
+        val p = Promise()
         try {
             val send_data = data.toString()
             _webSocket!!.send(send_data)
@@ -371,11 +364,11 @@ class GrapheneWebSocket {
                 val error_data = resp_error.optJSONObject("data")
                 if (error_data != null) {
                     val error_message = error_data.optString("message")
-                    val error_code = error_data.optString("error_code")
+                    val error_code = error_data.optInt("code").toString()
                     val error_stack = error_data.optJSONArray("stack")
                     if (error_message != "" && error_code != "" && error_stack != null && error_stack.length() > 0) {
                         val stack_str = error_stack.last<JSONObject>().toString()
-                        fabricLogCustom("api_error_${error_code}",
+                        btsppLogCustom("api_error_${error_code}",
                                 jsonObjectfromKVS("message", error_message, "detail_message", detail_error_message, "stack_str", stack_str))
                     }
                 }
@@ -392,7 +385,6 @@ class GrapheneWebSocket {
             }
         } else {
             assert(false)
-            Logger.d("Warning: unknown websocket response: ${response}")
         }
     }
 
@@ -402,22 +394,19 @@ class GrapheneWebSocket {
 
     private fun startKeepAliveTimer() {
         if (_keepAliveTimer == null) {
-            _keepAliveTimerTask = object : TimerTask() {
+            _keepAliveTimer = Timer()
+            _keepAliveTimer!!.schedule(object : TimerTask() {
                 override fun run() {
                     delay_main {
                         onKeepAliveTimerTick()
                     }
                 }
-            }
-            _keepAliveTimer = Timer()
-            _keepAliveTimer!!.schedule(_keepAliveTimerTask, 5000, 5000)
+            }, 5000, 5000)
         }
     }
 
     private fun stopKeepAliveTimer() {
         if (_keepAliveTimer != null) {
-            _keepAliveTimerTask!!.cancel()
-            _keepAliveTimerTask = null
             _keepAliveTimer!!.cancel()
             _keepAliveTimer = null
         }
@@ -426,7 +415,6 @@ class GrapheneWebSocket {
     fun onKeepAliveTimerTick() {
         --_recv_life
         if (_recv_life <= 0) {
-            Logger.d("connection is dead, terminating ws")
             process_websocket_error_or_close("heartbeat...")
             return
         }
@@ -474,7 +462,6 @@ class GrapheneWebSocket {
     @param webSocket An instance of `SRWebSocket` that was open.
      */
     fun webSocketDidOpen() {
-        Logger.d("webSocketDidOpen: $_curr_wsnode")
         //  REMARK：心跳定时器
         startKeepAliveTimer()
         //  连接成功
@@ -484,7 +471,6 @@ class GrapheneWebSocket {
     }
 
     fun process_websocket_error_or_close(message: String) {
-        Logger.d("process_websocket_error_or_close: $_curr_wsnode, msg:$message")
         if (is_closed()) {
             return
         }
@@ -499,13 +485,13 @@ class GrapheneWebSocket {
         stopKeepAliveTimer()
 
         //  通讯中或登录中异常：则当前的所有待完成promise全部reject
-        if (_cbs.size > 0) {
-            for ((k, v) in _cbs) {
+        if (_cbs.isNotEmpty()) {
+            for ((_, v) in _cbs) {
                 v.reject(message)
             }
             _cbs.clear()
         }
-        if (_subs.count() > 0) {
+        if (_subs.isNotEmpty()) {
             for ((_, v) in _subs) {
                 val cb = v as (Boolean, Any?) -> Unit
                 cb.invoke(false, message)
@@ -522,7 +508,6 @@ class GrapheneWebSocket {
     }
 
     fun didFailWithError(error: Exception) {
-        Logger.d("didFailWithError: $_curr_wsnode")
         process_websocket_error_or_close("websocket events error, ${error.message}")
     }
 

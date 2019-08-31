@@ -49,32 +49,32 @@ class ScheduleTickerUpdate {
 class ScheduleSubMarket {
 
 
-    var refCount = 0                                               //  K线界面、交易界面都会订阅（需要添加计数）
+    var refCount = 0                                                //  K线界面、交易界面都会订阅（需要添加计数）
     var callback: ((Boolean, Any) -> Boolean)? = null
     var tradingPair: TradingPair? = null
-    var subscribed: Boolean = false                                //  是否订阅中
+    var subscribed: Boolean = false                                 //  是否订阅中
 
-    var querying: Boolean = false                                  //  是否正在执行请求中
+    var querying: Boolean = false                                   //  是否正在执行请求中
 
-    var monitorOrderStatus: MutableMap<String, String>? = null         //  监控指定订单状态
+    var monitorOrderStatus: MutableMap<String, String>? = null      //  监控指定订单状态
 
-    var updateMonitorOrder: Boolean = false                        // 是否有监控中订单更新（新增、更新、删除）
-    var updateLimitOrder: Boolean = false                          // 是否有限价单更新（新增、更新、删除）
-    var updateCallOrder: Boolean = false                           // 是否有抵押单更新（新增、更新、删除）
-    var hasFillOrder: Boolean = false                              // 是否有新的成交记录
+    var updateMonitorOrder: Boolean = false                         // 是否有监控中订单更新（新增、更新、删除）
+    var updateLimitOrder: Boolean = false                           // 是否有限价单更新（新增、更新、删除）
+    var updateCallOrder: Boolean = false                            // 是否有抵押单更新（新增、更新、删除）
+    var hasFillOrder: Boolean = false                               // 是否有新的成交记录
 
     var accumulated_milliseconds: Long = 0L
 
     //  部分配置参数
-    var cfgLimitOrderNum: Int = 0                                  //  [配置] 每次更新时获取限价单数量
-    var cfgFillOrderNum: Int = 0                                   //  [配置] 每次更新时获取成交记录数量
+    var cfgCallOrderNum: Int = 0                                    //  [配置] 每次更新时获取限价爆仓单量
+    var cfgLimitOrderNum: Int = 0                                   //  [配置] 每次更新时获取限价单数量
+    var cfgFillOrderNum: Int = 0                                    //  [配置] 每次更新时获取成交记录数量
 }
 
 class ScheduleManager {
 
 
     var _timer_per_seconds: Timer? = null                          //  秒精度定时器
-    var _timer_per_seconds_task: TimerTask? = null
     var _ts_last_tick: Long = 0L
 
     var _task_hash_ticker = mutableMapOf<String, ScheduleTickerUpdate>()
@@ -94,7 +94,13 @@ class ScheduleManager {
     fun startTimer() {
         if (_timer_per_seconds == null) {
             _timer_per_seconds = Timer()
-            _timer_per_seconds!!.schedule(_timer_per_seconds_task, 1000, 3000)
+            _timer_per_seconds!!.schedule(object : TimerTask() {
+                override fun run() {
+                    delay_main {
+                        onTimerTick()
+                    }
+                }
+            }, 1000, 3000)
         }
     }
 
@@ -102,16 +108,6 @@ class ScheduleManager {
         if (_timer_per_seconds != null) {
             _timer_per_seconds!!.cancel()
             _timer_per_seconds = null
-        }
-    }
-
-    private fun initTimer() {
-        _timer_per_seconds_task = object : TimerTask() {
-            override fun run() {
-                delay_main {
-                    onTimerTick()
-                }
-            }
         }
     }
 
@@ -134,16 +130,6 @@ class ScheduleManager {
 
         //  更新订阅任务
         _processSubMarketTimeTick(dt)
-    }
-
-
-    fun onTimerTickerRefresh() {
-
-    }
-
-
-    constructor() {
-        initTimer()
     }
 
     /**
@@ -343,7 +329,7 @@ class ScheduleManager {
     /**
      *  订阅市场的通知信息
      */
-    fun sub_market_notify(tradingPair: TradingPair): Boolean {
+    fun sub_market_notify(tradingPair: TradingPair, n_callorder: Int, n_limitorder: Int, n_fillorder: Int): Boolean {
         assert(tradingPair != null)
         var s = _sub_market_infos[tradingPair._pair]
         if (s != null) {
@@ -364,8 +350,9 @@ class ScheduleManager {
         s.updateCallOrder = false
         s.hasFillOrder = false
         s.accumulated_milliseconds = 0
-        s.cfgLimitOrderNum = 200           //  TODO:fowallet 配置
-        s.cfgFillOrderNum = 20             //  TODO:fowallet 配置
+        s.cfgCallOrderNum = n_callorder
+        s.cfgLimitOrderNum = n_limitorder
+        s.cfgFillOrderNum = n_fillorder
         _sub_market_infos[tradingPair._pair] = s
 
         //  执行订阅
@@ -378,6 +365,9 @@ class ScheduleManager {
     fun unsub_market_notify(tradingPair: TradingPair) {
         //  没在订阅中
         val s = _sub_market_infos[tradingPair._pair] ?: return
+        if (!s.subscribed || s.callback == null) {
+            return
+        }
 
         //  降低引用计数
         s.refCount -= 1
@@ -396,10 +386,10 @@ class ScheduleManager {
 
         // 取消订阅
         conn.async_exec_db("unsubscribe_from_market", jsonArrayfrom(s.callback!!, tradingPair._baseId, tradingPair._quoteId)).then { data ->
-            Logger.d("[Unsubscribe] %s/%s successful.", tradingPair._quoteAsset["symbol"], tradingPair._baseAsset["symbol"])
+            Logger.d("[Unsubscribe] %s/%s successful.", tradingPair._quoteAsset.getString("symbol"), tradingPair._baseAsset.getString("symbol"))
             return@then null
         }.catch {
-            Logger.d("[Unsubscribe] %s/%s successful.", tradingPair._quoteAsset["symbol"], tradingPair._baseAsset["symbol"])
+            Logger.d("[Unsubscribe] %s/%s successful.", tradingPair._quoteAsset.getString("symbol"), tradingPair._baseAsset.getString("symbol"))
         }
     }
 
@@ -485,7 +475,7 @@ class ScheduleManager {
             s.querying = false
             s.subscribed = false
             //  [统计]
-            fabricLogCustom("event_subscribe_to_market_disconnect",
+            btsppLogCustom("event_subscribe_to_market_disconnect",
                     jsonObjectfromKVS("base", s.tradingPair!!._baseAsset.getString("symbol"),
                             "quote", s.tradingPair!!._quoteAsset.getString("symbol")))
         }
@@ -517,11 +507,11 @@ class ScheduleManager {
         val tradingPair = s.tradingPair
         conn.async_exec_db("subscribe_to_market", jsonArrayfrom(s.callback!!, tradingPair!!._baseId, tradingPair._quoteId)).then { data ->
             s.subscribed = true
-            Logger.d(String.format("[Subscribe] %s/%s successful.", tradingPair._quoteAsset["symbol"], tradingPair._baseAsset["symbol"]))
+            Logger.d(String.format("[Subscribe] %s/%s successful.", tradingPair._quoteAsset.getString("symbol"), tradingPair._baseAsset.getString("symbol")))
             return@then null
         }.catch {
             s.subscribed = false
-            Logger.d(String.format("[Subscribe] %s/%s failed..", tradingPair._quoteAsset["symbol"], tradingPair._baseAsset["symbol"]))
+            Logger.d(String.format("[Subscribe] %s/%s failed..", tradingPair._quoteAsset.getString("symbol"), tradingPair._baseAsset.getString("symbol")))
         }
     }
 
@@ -574,10 +564,10 @@ class ScheduleManager {
                 s.hasFillOrder = false
 
                 val promise_map = JSONObject()
-                if (updateLimitOrder) {
+                if (updateLimitOrder && s.cfgLimitOrderNum > 0) {
                     promise_map.put("kLimitOrders", chainMgr.queryLimitOrders(s.tradingPair!!, s.cfgLimitOrderNum))
                 }
-                if (hasFillOrder) {
+                if (hasFillOrder && s.cfgLimitOrderNum > 0) {
                     promise_map.put("kFillOrders", chainMgr.queryFillOrderHistory(s.tradingPair!!, s.cfgLimitOrderNum))
                 }
                 if (hasFillOrder) {
@@ -594,13 +584,15 @@ class ScheduleManager {
                 if (updateMonitorOrder && account_id != null) {
                     promise_map.put("kFullAccountData", chainMgr.queryFullAccountInfo(account_id))
                 }
-                //  TODO:fowallet 爆仓单、强清单 ！！！！尚未处理
+                //  TODO:fowallet 2.4 p5 updateCallOrder??
+                assert(s.cfgCallOrderNum > 0)
+                promise_map.put("kSettlementData", chainMgr.queryCallOrders(s.tradingPair!!, s.cfgCallOrderNum))
                 s.querying = true
                 Promise.map(promise_map).then {
                     val hashdata = it as JSONObject
                     s.querying = false
                     //  获取结果
-                    var result = JSONObject()
+                    val result = JSONObject()
                     if (updateLimitOrder) {
                         result.put("kLimitOrders", hashdata.getJSONObject("kLimitOrders"))
                     }
@@ -612,6 +604,7 @@ class ScheduleManager {
                     if (updateMonitorOrder && account_id != null) {
                         result.put("kFullAccountData", hashdata.getJSONObject("kFullAccountData"))
                     }
+                    result.put("kSettlementData", hashdata.getJSONObject("kSettlementData"))
                     //  更新成功、清除标记、累积时间清零。
                     s.accumulated_milliseconds = 0
                     //  通知

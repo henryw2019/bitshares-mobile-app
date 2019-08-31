@@ -19,8 +19,6 @@
 #import "secp256k1.h"
 #import "secp256k1_recovery.h"
 
-#import "AdManager.h"
-
 #import "VCTest.h"
 
 #import "VCSearchNetwork.h"
@@ -125,12 +123,7 @@
 
 //  事件：已经进入前台
 - (void)onUIApplicationDidBecomeActiveNotification
-{
-    //  广告 or 介绍界面显示中 不处理锁屏，因为这2个界面显示结束之后会唤起锁屏。
-    if ([[NativeAppDelegate sharedAppDelegate] isAdOrIntrlShowing]){
-        return;
-    }
-    
+{    
     //  检测语言是否发生变化，变化后重新初始化jsb。并删除之前多config缓存。
     BOOL langChanged = NO;
     NSString* lang = [NativeAppDelegate getSystemLanguage];
@@ -167,7 +160,7 @@
 {
     CLS_LOG(@"will enter background");
     //  [统计]
-    [Answers logCustomEventWithName:@"enterBackground" customAttributes:@{}];
+    [OrgUtils logEvents:@"enterBackground" params:@{}];
     //  处理逻辑
     [[AppCacheManager sharedAppCacheManager] saveToFile];
     //  记录即将进入后台的时间
@@ -187,18 +180,7 @@
 {
     CLS_LOG(@"will enter foreground");
     //  [统计]
-    [Answers logCustomEventWithName:@"enterForeground" customAttributes:@{}];
-}
-
-/**
- *  TODO:fowallet 这个方法配置
- */
-static void counting_illegal_callback_fn(const char* str, void* data) {
-    /* Dummy callback function that just counts. */
-    int32_t *p;
-    (void)str;
-    p = data;
-    (*p)++;
+    [OrgUtils logEvents:@"enterForeground" params:@{}];
 }
 
 - (void)onAddMarketInfos
@@ -273,6 +255,19 @@ static void counting_illegal_callback_fn(const char* str, void* data) {
     [self checkUpdate:NO];
 }
 
+- (void)onFirstInitFailed
+{
+    [[UIAlertViewManager sharedUIAlertViewManager] showMessageEx:NSLocalizedString(@"kAppFirstInitNetworkFailed", @"APP网络初始化异常了，请按照以下步骤处理：\n1、如果是首次启动，请允许应用使用无线数据。\n2、其他情况请检查您的设备网络是否正常。")
+                                                       withTitle:NSLocalizedString(@"kWarmTips", @"温馨提示")
+                                                    cancelButton:nil
+                                                    otherButtons:@[NSLocalizedString(@"kAppBtnReInit", @"重试")]
+                                                      completion:^(NSInteger buttonIndex)
+     {
+         [OrgUtils logEvents:@"appReInitNetwork" params:@{}];
+         [self startInitGrapheneNetwork];
+     }];
+}
+
 /**
  *  (private) 初始化 Bitshares 网络
  */
@@ -313,21 +308,21 @@ static void counting_illegal_callback_fn(const char* str, void* data) {
                 _grapheneInitDone = YES;
                 //  添加ticker更新任务
                 [[ScheduleManager sharedScheduleManager] autoRefreshTickerScheduleByMergedMarketInfos];
+                //  初始化网络成功
+                [OrgUtils logEvents:@"appInitNetworkDone" params:@{}];
                 return nil;
             })];
         })] catch:(^id(id error) {
             [self hideBlockView];
             CLS_LOG(@"InitNetworkError02: %@", error);
-            //  TODO:fowalelt 是否重试
-            [OrgUtils makeToast:NSLocalizedString(@"tip_network_error", @"网络异常，请稍后再试。")];
+            [self onFirstInitFailed];
             return nil;
         })];
         return nil;
     })] catch:(^id(id error) {
         [self hideBlockView];
         CLS_LOG(@"InitNetworkError01: %@", error);
-        //  TODO:fowallet 连接所有结点都失败
-        [OrgUtils makeToast:NSLocalizedString(@"tip_network_error", @"网络异常，请稍后再试。")];
+        [self onFirstInitFailed];
         return nil;
     })];
 }
@@ -455,9 +450,9 @@ static void counting_illegal_callback_fn(const char* str, void* data) {
     NSString* pNativeVersion = [NativeAppDelegate appShortVersion];
     NSString* flags = @"0";
 #if APPSTORE_CHANNEL
-    id version_url = [NSString stringWithFormat:@"http://btspp.io/app/a_%@/version.json?f=%@", pNativeVersion, flags];
+    id version_url = [NSString stringWithFormat:@"https://btspp.io/app/a_%@/version.json?f=%@", pNativeVersion, flags];
 #else
-    id version_url = [NSString stringWithFormat:@"http://btspp.io/app/e_%@/version.json?f=%@", pNativeVersion, flags];
+    id version_url = [NSString stringWithFormat:@"https://btspp.io/app/e_%@/version.json?f=%@", pNativeVersion, flags];
 #endif  //  APPSTORE_CHANNEL
     [OrgUtils asyncFetchJson:version_url
                      timeout:[[NativeAppDelegate sharedAppDelegate] getRequestTimeout]
@@ -575,11 +570,11 @@ static void counting_illegal_callback_fn(const char* str, void* data) {
 {
     NSArray* otherButtons = nil;
     if (!forceUpdate){
-        otherButtons = [NSArray arrayWithObject:NSLocalizedString(@"remind me latter", @"稍后提醒")];
+        otherButtons = [NSArray arrayWithObject:NSLocalizedString(@"kRemindMeLatter", @"稍后提醒")];
     }
     [[UIAlertViewManager sharedUIAlertViewManager] showMessageEx:message
                                                        withTitle:NSLocalizedString(@"kWarmTips", @"温馨提示")
-                                                    cancelButton:NSLocalizedString(@"upgrade now", @"立即升级")
+                                                    cancelButton:NSLocalizedString(@"kUpgradeNow", @"立即升级")
                                                     otherButtons:otherButtons
                                                       completion:^(NSInteger buttonIndex)
      {
@@ -597,10 +592,17 @@ static void counting_illegal_callback_fn(const char* str, void* data) {
     self.navigationItem.rightBarButtonItem.tintColor = [ThemeManager sharedThemeManager].navigationBarTextColor;
 }
 
-- (void)didReceiveMemoryWarning
+#pragma mark- switch language
+- (void)switchLanguage
 {
-    [super didReceiveMemoryWarning];
-    // Dispose of any resources that can be recreated.
+    [[self buttonWithTag:1] setTitle:NSLocalizedString(@"kLabelMarketFavorites", @"自选") forState:UIControlStateNormal];
+    self.title = NSLocalizedString(@"kTabBarNameMarkets", @"行情");
+    self.tabBarItem.title = NSLocalizedString(@"kTabBarNameMarkets", @"行情");
+    if (_subvcArrays){
+        for (VCMarketInfo* vc in _subvcArrays) {
+            [vc switchLanguage];
+        }
+    }
 }
 
 @end

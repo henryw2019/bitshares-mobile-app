@@ -8,7 +8,10 @@ import android.view.View
 import android.view.animation.OvershootInterpolator
 import android.widget.ImageButton
 import android.widget.TextView
-import bitshares.*
+import bitshares.AppCacheManager
+import bitshares.btsppLogCustom
+import bitshares.jsonArrayfrom
+import bitshares.jsonObjectfromKVS
 import com.fowallet.walletcore.bts.WalletManager
 import kotlinx.android.synthetic.main.activity_my_assets.*
 import org.json.JSONObject
@@ -28,7 +31,7 @@ class ActivityMyAssets : BtsppActivity() {
         setAutoLayoutContentView(R.layout.activity_my_assets)
 
         //  获取参数
-        var args = TempManager.sharedTempManager().get_args_as_JSONArray()
+        val args = btspp_args_as_JSONArray()
         _userAssetDetailInfos = args[0] as JSONObject
         _full_account_data = args[1] as JSONObject
 
@@ -36,7 +39,7 @@ class ActivityMyAssets : BtsppActivity() {
         val account = _full_account_data.getJSONObject("account")
         val target_name = account.getString("name")
         if (WalletManager.sharedWalletManager().isMyselfAccount(target_name)) {
-            findViewById<TextView>(R.id.title).text = resources.getString(R.string.myPageMyAssets)
+            findViewById<TextView>(R.id.title).text = resources.getString(R.string.kVcTitleMyBalance)
             //  不显示关注按钮
             btn_fav.visibility = View.GONE
         } else {
@@ -79,15 +82,15 @@ class ActivityMyAssets : BtsppActivity() {
         if (pAppCache.get_all_fav_accounts().has(account_name)) {
             pAppCache.remove_fav_account(account_name)
             btn.setColorFilter(resources.getColor(R.color.theme01_textColorGray))
-            showToast(resources.getString(R.string.myAssetsPageCanceledFollow))
+            showToast(resources.getString(R.string.kTipsUnfollowed))
             //  [统计]
-            fabricLogCustom("event_account_remove_fav", jsonObjectfromKVS("account", account_name))
+            btsppLogCustom("event_account_remove_fav", jsonObjectfromKVS("account", account_name))
         } else {
             pAppCache.set_fav_account(jsonObjectfromKVS("name", account_name, "id", account.getString("id")))
             btn.setColorFilter(resources.getColor(R.color.theme01_textColorHighlight))
-            showToast(resources.getString(R.string.myAssetsPageFollowSuccess))
+            showToast(resources.getString(R.string.kTipsFollowed))
             //  [统计]
-            fabricLogCustom("event_account_add_fav", jsonObjectfromKVS("account", account_name))
+            btsppLogCustom("event_account_add_fav", jsonObjectfromKVS("account", account_name))
         }
         pAppCache.saveFavAccountsToFile()
     }
@@ -117,12 +120,22 @@ class ActivityMyAssets : BtsppActivity() {
     private fun setFragments() {
         fragmens.add(FragmentAssets().initialize(jsonArrayfrom(_userAssetDetailInfos, _full_account_data)))
         fragmens.add(FragmentAssetsDetail().initialize(_full_account_data))
+        fragmens.add(FragmentAssetsHtlcList().initialize(_full_account_data))
+        fragmens.add(FragmentVestingBalance().initialize(_full_account_data))
     }
 
     private fun setTabListener() {
         tablayout!!.setOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
             override fun onTabSelected(tab: TabLayout.Tab) {
-                view_pager!!.setCurrentItem(tab.position, true)
+                val pos = tab.position
+                view_pager!!.setCurrentItem(pos, true)
+                fragmens[pos].let {
+                    if (it is FragmentAssetsHtlcList) {
+                        it.queryUserHTLCs()
+                    } else if (it is FragmentVestingBalance) {
+                        it.queryVestingBalance()
+                    }
+                }
             }
 
             override fun onTabUnselected(tab: TabLayout.Tab) {

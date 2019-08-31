@@ -25,7 +25,7 @@ class ActivityUpgradeToWalletMode : BtsppActivity() {
         setFullScreen()
 
         //  获取参数 / get params
-        val args = TempManager.sharedTempManager().get_args_as_JSONObject()
+        val args = btspp_args_as_JSONObject()
         _result_promise = args.get("result_promise") as Promise
 
         //  刷新UI
@@ -36,14 +36,14 @@ class ActivityUpgradeToWalletMode : BtsppActivity() {
 
         //  帮助按钮事件
         tip_link_wallet_password_of_upgrade_to_wallet.setOnClickListener {
-            UtilsAlert.showMessageBox(this, R.string.tipsFormatWalletPassword.xmlstring(this))
+            UtilsAlert.showMessageBox(this, R.string.kLoginRegTipsWalletPasswordFormat.xmlstring(this))
         }
 
         //  创建钱包按钮事件
         button_create_wallet_of_upgrade_to_wallet.setOnClickListener { onSubmitClicked() }
     }
 
-    private fun onBackClicked(success: Boolean) {
+    override fun onBackClicked(success: Any?) {
         _result_promise.resolve(success)
         finish()
     }
@@ -53,7 +53,7 @@ class ActivityUpgradeToWalletMode : BtsppActivity() {
         val wallet_password = findViewById<EditText>(R.id.tf_wallet_password_of_upgrade_to_wallet).text.toString()
 
         if (password.isEmpty()) {
-            showToast(resources.getString(R.string.registerLoginPagePwsIsEmptyAndInputAgain))
+            showToast(resources.getString(R.string.kMsgPasswordCannotBeNull))
             return
         }
 
@@ -77,7 +77,7 @@ class ActivityUpgradeToWalletMode : BtsppActivity() {
         val active_private_wif = OrgUtils.genBtsWifPrivateKey(active_seed.utf8String())
         val owner_seed = "${accountName}owner${password}"
         val owner_private_wif = OrgUtils.genBtsWifPrivateKey(owner_seed.utf8String())
-        val full_wallet_bin = walletMgr.genFullWalletData(this, accountName, active_private_wif, owner_private_wif, null, wallet_password)!!
+        val full_wallet_bin = walletMgr.genFullWalletData(this, accountName, jsonArrayfrom(active_private_wif, owner_private_wif), wallet_password)!!
 
         //  3、保存钱包信息
         AppCacheManager.sharedAppCacheManager().apply {
@@ -90,7 +90,7 @@ class ActivityUpgradeToWalletMode : BtsppActivity() {
         assert(unlockInfos.getBoolean("unlockSuccess") && unlockInfos.optBoolean("haveActivePermission"))
 
         //  [统计]
-        fabricLogCustom("convertEvent", jsonObjectfromKVS("desc", "password+wallet", "account", accountName))
+        btsppLogCustom("convertEvent", jsonObjectfromKVS("desc", "password+wallet", "account", accountName))
 
         //  转换成功 - 关闭界面
 

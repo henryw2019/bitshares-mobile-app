@@ -27,6 +27,7 @@ static ChainObjectManager *_sharedChainObjectManager = nil;
     NSMutableDictionary*    _cacheObjectID2ObjectHash;      //  内存缓存
     NSMutableDictionary*    _cacheAccountName2ObjectHash;   //  内存缓存
     NSMutableDictionary*    _cacheUserFullAccountData;      //  内存缓存 - 用户完整信息（每次查询后更新。）
+    NSMutableDictionary*    _cacheVoteIdInfoHash;           //  内存缓存
     
     NSDictionary*           _defaultMarketInfos;            //  ipa自带的默认配置信息（fowallet_config.json）
     NSMutableDictionary*    _defaultMarketPairs;            //  默认内置交易对。交易对格式：#{base_symbol}_#{quote_symbol}
@@ -76,6 +77,7 @@ static ChainObjectManager *_sharedChainObjectManager = nil;
         _cacheObjectID2ObjectHash = [NSMutableDictionary dictionary];
         _cacheAccountName2ObjectHash = [NSMutableDictionary dictionary];
         _cacheUserFullAccountData = [NSMutableDictionary dictionary];
+        _cacheVoteIdInfoHash = [NSMutableDictionary dictionary];
         _defaultMarketInfos = nil;
         _defaultMarketPairs = nil;
         _defaultGroupList = nil;
@@ -92,6 +94,8 @@ static ChainObjectManager *_sharedChainObjectManager = nil;
     _cacheAssetSymbol2ObjectHash = nil;
     _cacheObjectID2ObjectHash = nil;
     _cacheAccountName2ObjectHash = nil;
+    _cacheUserFullAccountData = nil;
+    _cacheVoteIdInfoHash = nil;
     
     _tickerDatas = nil;
     _mergedMarketInfoList = nil;
@@ -443,6 +447,15 @@ static ChainObjectManager *_sharedChainObjectManager = nil;
     }
 }
 
+- (WsPromise*)queryGlobalProperties
+{
+    GrapheneApi* api = [[GrapheneConnectionManager sharedGrapheneConnectionManager] any_connection].api_db;
+    return [[api exec:@"get_global_properties" params:@[]] then:(^id(id global_data) {
+        [self updateObjectGlobalProperties:global_data];
+        return global_data;
+    })];
+}
+
 /**
  *  (public) 获取指定分组信息
  */
@@ -484,6 +497,11 @@ static ChainObjectManager *_sharedChainObjectManager = nil;
 - (id)getChainObjectByID:(NSString*)oid
 {
     return [_cacheObjectID2ObjectHash objectForKey:oid];
+}
+
+- (id)getVoteInfoByVoteID:(NSString*)vote_id
+{
+    return [_cacheVoteIdInfoHash objectForKey:vote_id];
 }
 
 - (id)getAccountByName:(NSString*)name
@@ -547,8 +565,14 @@ static ChainObjectManager *_sharedChainObjectManager = nil;
 #pragma mark- aux method
 /**
  *  (public) 获取手续费对象
+ *  extra_balance   - key: asset_type   value: balance amount
  */
 - (NSDictionary*)getFeeItem:(EBitsharesOperations)op_code full_account_data:(NSDictionary*)full_account_data
+{
+    return [self getFeeItem:op_code full_account_data:full_account_data extra_balance:nil];
+}
+
+- (NSDictionary*)getFeeItem:(EBitsharesOperations)op_code full_account_data:(NSDictionary*)full_account_data extra_balance:(NSDictionary*)extra_balance
 {
     if (!full_account_data){
         id wallet_account_info = [[WalletManager sharedWalletManager] getWalletAccountInfo];
@@ -559,19 +583,39 @@ static ChainObjectManager *_sharedChainObjectManager = nil;
             full_account_data = wallet_account_info;
         }
     }
-    return [self estimateFeeObject:op_code full_account_data:full_account_data];
+    return [self estimateFeeObject:op_code full_account_data:full_account_data extra_balance:extra_balance];
 }
 
 /**
  *  (public) 评估指定交易操作所需要的手续费信息
  */
 - (NSDictionary*)estimateFeeObject:(EBitsharesOperations)op full_account_data:(NSDictionary*)full_account_data
+                     extra_balance:(NSDictionary*)extra_balance
 {
     assert(full_account_data);
-    id balances_list = [[full_account_data objectForKey:@"balances"] ruby_map:(^id(id balance_object) {
-        return @{@"asset_id":balance_object[@"asset_type"], @"amount":balance_object[@"balance"]};
-    })];
-    return [self estimateFeeObject:op balances:balances_list];
+    id balances_hash = [NSMutableDictionary dictionary];
+    for (id balance_object in [full_account_data objectForKey:@"balances"]) {
+        id asset_type = [balance_object objectForKey:@"asset_type"];
+        id balance = [balance_object objectForKey:@"balance"];
+        //  合并额外的金额
+        if (extra_balance){
+            id extra_amount = [extra_balance objectForKey:asset_type];
+            if (extra_amount){
+                balance = @([balance unsignedLongLongValue] + [extra_amount unsignedLongLongValue]);
+            }
+        }
+        [balances_hash setObject:@{@"asset_id":asset_type, @"amount":balance} forKey:asset_type];
+    }
+    //  合并
+    if (extra_balance){
+        for (id asset_type in extra_balance) {
+            if (![balances_hash objectForKey:asset_type]){
+                id extra_amount = [extra_balance objectForKey:asset_type];
+                [balances_hash setObject:@{@"asset_id":asset_type, @"amount":extra_amount} forKey:asset_type];
+            }
+        }
+    }
+    return [self estimateFeeObject:op balances:[balances_hash allValues]];
 }
 
 - (NSDictionary*)estimateFeeObject:(EBitsharesOperations)op balances:(NSArray*)balance_list
@@ -756,12 +800,11 @@ static ChainObjectManager *_sharedChainObjectManager = nil;
     }
     
     return [[WsPromise all:[promise_list copy]] then:(^id(id data_list) {
-        NSInteger idx = 0;
-        for (id ticker in data_list) {
+        [data_list ruby_each_with_index:(^(id ticker, NSInteger idx) {
             NSString* pair = [pairs_list objectAtIndex:idx];
             [_tickerDatas setObject:ticker forKey:pair];
-            ++idx;
-        }
+        })];
+        
         //  初始化成功
         return @YES;
     })];
@@ -852,7 +895,8 @@ static ChainObjectManager *_sharedChainObjectManager = nil;
     return [[self queryAllObjectsInfo:asset_id_array
                        cacheContainer:_cacheAssetSymbol2ObjectHash
                        cacheObjectKey:@"symbol"
-                       skipQueryCache:YES] then:(^id(id asset_hash) {
+                       skipQueryCache:YES
+                      skipCacheIdHash:nil] then:(^id(id asset_hash) {
         NSLog(@"[Track] queryFeeAssetListDynamicInfo step01 finish.");
         // 仅有 BTS 可支付手续费，那么这里应该为空了。
         if ([asset_hash count] <= 0){
@@ -879,6 +923,111 @@ static ChainObjectManager *_sharedChainObjectManager = nil;
 }
 
 /**
+ *  (public) 查询智能资产的信息（非智能资产返回nil）
+ */
+- (WsPromise*)queryShortBackingAssetInfos:(NSArray*)asset_id_list
+{
+    return [[self queryAllAssetsInfo:asset_id_list] then:(^id(id asset_hash) {
+        NSMutableDictionary* asset_bitasset_hash = [NSMutableDictionary dictionary];
+        
+        NSMutableArray* bitasset_id_list = [NSMutableArray array];
+        for (id asset_id in asset_id_list) {
+            id asset = [asset_hash objectForKey:asset_id];
+            assert(asset);
+            id bitasset_data_id = [asset objectForKey:@"bitasset_data_id"];
+            if (bitasset_data_id && ![bitasset_data_id isEqualToString:@""]){
+                [bitasset_id_list addObject:bitasset_data_id];
+                [asset_bitasset_hash setObject:bitasset_data_id forKey:asset_id];
+            }
+        }
+        
+        return [[self queryAllGrapheneObjects:bitasset_id_list] then:(^id(id bitasset_hash) {
+            
+            NSMutableDictionary* sba_hash = [NSMutableDictionary dictionary];
+            for (id asset_id in asset_bitasset_hash) {
+                id bitasset_data_id = [asset_bitasset_hash objectForKey:asset_id];
+                assert(bitasset_data_id);
+                id bitasset_data = [bitasset_hash objectForKey:bitasset_data_id];
+                id short_backing_asset = [[bitasset_data objectForKey:@"options"] objectForKey:@"short_backing_asset"];
+                assert(short_backing_asset);
+                [sba_hash setObject:short_backing_asset forKey:asset_id];
+            }
+            
+            return [sba_hash copy];
+        })];
+    })];
+}
+
+/**
+ *  (public) 查询所有投票ID信息
+ */
+- (WsPromise*)queryAllVoteIds:(NSArray*)vote_id_array
+{
+    //  TODO:分批查询？
+    assert([vote_id_array count] < 1000);
+    
+    NSMutableDictionary* resultHash = [NSMutableDictionary dictionary];
+    
+    //  要查询的数据为空，则返回空的 Hash。
+    if (!vote_id_array || [vote_id_array count] <= 0){
+        return [WsPromise resolve:resultHash];
+    }
+    
+    NSMutableArray* queryArray = [NSMutableArray array];
+    
+    //  从缓存加载
+    AppCacheManager* pAppCache = [AppCacheManager sharedAppCacheManager];
+    NSTimeInterval now_ts = [[NSDate date] timeIntervalSince1970];
+    for (NSString* vote_id in vote_id_array) {
+        id obj = [pAppCache get_object_cache:vote_id now_ts:now_ts];
+        if (obj){
+            [_cacheVoteIdInfoHash setObject:obj forKey:vote_id];     //  add to memory cache: id hash
+            [resultHash setObject:obj forKey:vote_id];
+        }else{
+            [queryArray addObject:vote_id];
+        }
+    }
+    //  从缓存获取完毕，直接返回。
+    if ([queryArray count] == 0){
+        return [WsPromise resolve:resultHash];
+    }
+    
+    //  从网络查询。
+    GrapheneApi* api = [[GrapheneConnectionManager sharedGrapheneConnectionManager] any_connection].api_db;
+    
+    return [[api exec:@"lookup_vote_ids" params:@[queryArray]] then:(^id(id data_array) {
+        //  更新缓存 和 结果
+        for (id obj in data_array) {
+            if ([obj isKindOfClass:[NSNull class]]){
+                continue;
+            }
+            id vid = [obj objectForKey:@"vote_id"];
+            if (vid){
+                [pAppCache update_object_cache:vid object:obj];
+                [_cacheVoteIdInfoHash setObject:obj forKey:vid];            //  add to memory cache: id hash
+                [resultHash setObject:obj forKey:vid];
+            }else{
+                id vote_for = [obj objectForKey:@"vote_for"];
+                id vote_against = [obj objectForKey:@"vote_against"];
+                assert(vote_for && vote_against);
+                
+                [pAppCache update_object_cache:vote_for object:obj];
+                [_cacheVoteIdInfoHash setObject:obj forKey:vote_for];       //  add to memory cache: id hash
+                [resultHash setObject:obj forKey:vote_for];
+                
+                [pAppCache update_object_cache:vote_against object:obj];
+                [_cacheVoteIdInfoHash setObject:obj forKey:vote_against];   //  add to memory cache: id hash
+                [resultHash setObject:obj forKey:vote_against];
+            }
+        }
+        //  保存缓存
+        [pAppCache saveObjectCacheToFile];
+        //  返回结果
+        return resultHash;
+    })];
+}
+
+/**
  *  (private) 查询指定对象ID列表的所有对象信息，返回 Hash。 格式：{对象ID=>对象信息, ...}
  *
  *  skipQueryCache - 控制是否查询缓存
@@ -889,6 +1038,7 @@ static ChainObjectManager *_sharedChainObjectManager = nil;
                    cacheContainer:(NSMutableDictionary*)cache
                    cacheObjectKey:(NSString*)key
                    skipQueryCache:(BOOL)skipQueryCache
+                  skipCacheIdHash:(NSDictionary*)skipCacheIdHash
 {
     NSMutableDictionary* resultHash = [NSMutableDictionary dictionary];
     
@@ -906,15 +1056,20 @@ static ChainObjectManager *_sharedChainObjectManager = nil;
         AppCacheManager* pAppCache = [AppCacheManager sharedAppCacheManager];
         NSTimeInterval now_ts = [[NSDate date] timeIntervalSince1970];
         for (NSString* object_id in object_id_array) {
-            id obj = [pAppCache get_object_cache:object_id now_ts:now_ts];
-            if (obj){
-                [_cacheObjectID2ObjectHash setObject:obj forKey:object_id];     //  add to memory cache: id hash
-                if (cache && key){
-                    [cache setObject:obj forKey:[obj objectForKey:key]];        //  add to memory cache: key hash
-                }
-                [resultHash setObject:obj forKey:object_id];
-            }else{
+            if (skipCacheIdHash && [skipCacheIdHash objectForKey:object_id]){
+                //  部分ID跳过缓存
                 [queryArray addObject:object_id];
+            }else{
+                id obj = [pAppCache get_object_cache:object_id now_ts:now_ts];
+                if (obj){
+                    [_cacheObjectID2ObjectHash setObject:obj forKey:object_id];     //  add to memory cache: id hash
+                    if (cache && key){
+                        [cache setObject:obj forKey:[obj objectForKey:key]];        //  add to memory cache: key hash
+                    }
+                    [resultHash setObject:obj forKey:object_id];
+                }else{
+                    [queryArray addObject:object_id];
+                }
             }
         }
         //  从缓存获取完毕，直接返回。
@@ -954,7 +1109,8 @@ static ChainObjectManager *_sharedChainObjectManager = nil;
     return [self queryAllObjectsInfo:account_id_array
                       cacheContainer:_cacheAccountName2ObjectHash
                       cacheObjectKey:@"name"
-                      skipQueryCache:NO];
+                      skipQueryCache:NO
+                     skipCacheIdHash:nil];
 }
 
 - (WsPromise*)queryAllAssetsInfo:(NSArray*)asset_id_array
@@ -962,7 +1118,8 @@ static ChainObjectManager *_sharedChainObjectManager = nil;
     return [self queryAllObjectsInfo:asset_id_array
                       cacheContainer:_cacheAssetSymbol2ObjectHash
                       cacheObjectKey:@"symbol"
-                      skipQueryCache:NO];
+                      skipQueryCache:NO
+                     skipCacheIdHash:nil];
 }
 
 - (WsPromise*)queryAllGrapheneObjects:(NSArray*)id_array
@@ -970,7 +1127,26 @@ static ChainObjectManager *_sharedChainObjectManager = nil;
     return [self queryAllObjectsInfo:id_array
                       cacheContainer:nil
                       cacheObjectKey:nil
-                      skipQueryCache:NO];
+                      skipQueryCache:NO
+                     skipCacheIdHash:nil];
+}
+
+- (WsPromise*)queryAllGrapheneObjectsSkipCache:(NSArray*)id_array
+{
+    return [self queryAllObjectsInfo:id_array
+                      cacheContainer:nil
+                      cacheObjectKey:nil
+                      skipQueryCache:YES
+                     skipCacheIdHash:nil];
+}
+
+- (WsPromise*)queryAllGrapheneObjects:(NSArray*)id_array skipCacheIdHash:(NSDictionary*)skipCacheIdHash
+{
+    return [self queryAllObjectsInfo:id_array
+                      cacheContainer:nil
+                      cacheObjectKey:nil
+                      skipQueryCache:NO
+                     skipCacheIdHash:skipCacheIdHash];
 }
 
 /**
@@ -1120,6 +1296,142 @@ static ChainObjectManager *_sharedChainObjectManager = nil;
         
         //  返回
         return fillOrders;
+    })];
+}
+
+/**
+ *  (public) 查询爆仓单
+ */
+- (WsPromise*)queryCallOrders:(TradingPair*)tradingPair number:(NSInteger)number
+{
+    if (!tradingPair.isCoreMarket){
+        return [WsPromise resolve:@{}];
+    }
+    
+    GrapheneApi* api = [[GrapheneConnectionManager sharedGrapheneConnectionManager] any_connection].api_db;
+    
+    id bitasset_data_id = [[self getChainObjectByID:tradingPair.smartAssetId] objectForKey:@"bitasset_data_id"];
+    assert(bitasset_data_id);
+    
+    id p1 = [[api exec:@"get_objects" params:@[@[bitasset_data_id]]] then:(^id(id data) {
+        return [data objectAtIndex:0];
+    })];
+    id p2 = [api exec:@"get_call_orders" params:@[tradingPair.smartAssetId, @(number)]];
+    
+    return [[WsPromise all:@[p1, p2]] then:(^id(id data_array) {
+        id bitasset = [data_array objectAtIndex:0];
+        id callorders = [data_array objectAtIndex:1];
+        
+        //  准备参数
+        NSInteger debt_precision;
+        NSInteger collateral_precision;
+        NSRoundingMode roundingMode;
+        BOOL invert;
+        if ([tradingPair.smartAssetId isEqualToString:tradingPair.baseId]){
+            debt_precision = tradingPair.basePrecision;
+            collateral_precision = tradingPair.quotePrecision;
+            invert = NO;
+            roundingMode = NSRoundDown;
+        }else{
+            debt_precision = tradingPair.quotePrecision;
+            collateral_precision = tradingPair.basePrecision;
+            invert = YES;   //  force sell `quote` is force buy action
+            roundingMode = NSRoundUp;
+        }
+        
+        //  计算喂价
+        id current_feed = [bitasset objectForKey:@"current_feed"];
+        assert(current_feed);
+        id settlement_price = [current_feed objectForKey:@"settlement_price"];
+        assert(settlement_price);
+        NSDecimalNumber* feed_price = [OrgUtils calcPriceFromPriceObject:settlement_price
+                                                                 base_id:tradingPair.sbaAssetId
+                                                          base_precision:collateral_precision
+                                                         quote_precision:debt_precision
+                                                                  invert:NO
+                                                            roundingMode:roundingMode
+                                                    set_divide_precision:NO];
+        
+        //  REMARK：没人喂价 or 所有喂价都过期，则存在 base和quote 都为 0 的情况。即：无喂价。
+        NSDecimalNumber* feed_price_market = nil;
+        NSDecimalNumber* call_price_market = nil;
+        NSDecimalNumber* call_price = [NSDecimalNumber zero];
+        NSDecimalNumber* total_sell_amount = [NSDecimalNumber zero];
+        NSDecimalNumber* n_mcr = nil;
+        NSDecimalNumber* n_mssr = nil;
+        NSInteger settlement_account_number = 0;
+        if (feed_price){
+            feed_price_market = [OrgUtils calcPriceFromPriceObject:settlement_price
+                                                           base_id:tradingPair.quoteId
+                                                    base_precision:tradingPair.quotePrecision
+                                                   quote_precision:tradingPair.basePrecision
+                                                            invert:NO
+                                                      roundingMode:roundingMode
+                                              set_divide_precision:YES];
+            
+            id mssr = [current_feed objectForKey:@"maximum_short_squeeze_ratio"];
+            id mcr = [current_feed objectForKey:@"maintenance_collateral_ratio"];
+            
+            n_mcr = [NSDecimalNumber decimalNumberWithMantissa:[mcr unsignedLongLongValue] exponent:-3 isNegative:NO];
+            n_mssr = [NSDecimalNumber decimalNumberWithMantissa:[mssr unsignedLongLongValue] exponent:-3 isNegative:NO];
+            
+            //  1、计算爆仓成交价   feed / mssr
+            call_price_market = call_price = [feed_price decimalNumberByDividingBy:n_mssr];
+            if (invert){
+                call_price_market = [[NSDecimalNumber one] decimalNumberByDividingBy:call_price];
+            }
+            
+            //  2、计算爆仓单数量
+            id zero = [NSDecimalNumber zero];
+            NSDecimalNumberHandler* settlement_handler = [NSDecimalNumberHandler decimalNumberHandlerWithRoundingMode:NSRoundUp
+                                                                                                                scale:debt_precision
+                                                                                                     raiseOnExactness:NO
+                                                                                                      raiseOnOverflow:NO
+                                                                                                     raiseOnUnderflow:NO
+                                                                                                  raiseOnDivideByZero:NO];
+            for (id callorder in callorders) {
+                NSDecimalNumber* n_settlement_trigger_price = [OrgUtils calcSettlementTriggerPrice:callorder[@"debt"]
+                                                                                        collateral:callorder[@"collateral"]
+                                                                                    debt_precision:debt_precision
+                                                                              collateral_precision:collateral_precision
+                                                                                             n_mcr:n_mcr
+                                                                                           reverse:NO
+                                                                                      ceil_handler:settlement_handler
+                                                                              set_divide_precision:NO];
+                //  强制平仓
+                if ([feed_price compare:n_settlement_trigger_price] < 0){
+                    id sell_amount = [OrgUtils calcSettlementSellNumbers:callorder
+                                                          debt_precision:debt_precision
+                                                    collateral_precision:collateral_precision
+                                                              feed_price:feed_price
+                                                              call_price:call_price
+                                                                     mcr:n_mcr
+                                                                    mssr:n_mssr];
+                    //  小数点精度可能有细微误差
+                    if ([sell_amount compare:zero] <= 0){
+                        continue;
+                    }
+                    total_sell_amount = [total_sell_amount decimalNumberByAdding:sell_amount];
+                    ++settlement_account_number;
+                }
+            }
+        }
+        //  返回
+        if (feed_price_market){
+            assert(n_mssr && n_mcr && call_price_market);
+            return @{@"feed_price_market":feed_price_market,
+                     @"feed_price":feed_price,                  //  需要手动翻转价格
+                     @"call_price_market":call_price_market,
+                     @"call_price":call_price,                  //  需要手动翻转价格
+                     @"total_sell_amount":total_sell_amount,
+                     @"total_buy_amount":[total_sell_amount decimalNumberByMultiplyingBy:call_price],
+                     @"invert":@(invert),
+                     @"mcr":n_mcr,
+                     @"mssr":n_mssr,
+                     @"settlement_account_number":@(settlement_account_number)};
+        }else{
+            return @{};
+        }
     })];
 }
 
@@ -1309,7 +1621,7 @@ static ChainObjectManager *_sharedChainObjectManager = nil;
     for (NSInteger i = 0; i <= 10; ++i) {
         [query_oid_list addObject:[NSString stringWithFormat:@"2.13.%@", @(latest_oid - i)]];
     }
-    return [[self queryAllObjectsInfo:query_oid_list cacheContainer:nil cacheObjectKey:nil skipQueryCache:NO] then:(^id(id asset_hash) {
+    return [[self queryAllObjectsInfo:query_oid_list cacheContainer:nil cacheObjectKey:nil skipQueryCache:NO skipCacheIdHash:nil] then:(^id(id asset_hash) {
         id budget_object = nil;
         for (id check_oid in query_oid_list) {
             budget_object = [asset_hash objectForKey:check_oid];
@@ -1398,7 +1710,7 @@ static ChainObjectManager *_sharedChainObjectManager = nil;
     //  当前帐号设置了代理，继续递归查询。
     //  TODO:fowallet 统计数据
     NSLog(@"[Voting Proxy] Query proxy account: %@, level: %@", voting_account_id, @(level + 1));
-    return [[self queryAllObjectsInfo:@[voting_account_id] cacheContainer:nil cacheObjectKey:nil skipQueryCache:YES] then:(^id(id data_hash) {
+    return [[self queryAllObjectsInfo:@[voting_account_id] cacheContainer:nil cacheObjectKey:nil skipQueryCache:YES skipCacheIdHash:nil] then:(^id(id data_hash) {
         id proxy_account_data = [data_hash objectForKey:voting_account_id];
         assert(proxy_account_data);
         return [self _queryAccountVotingInfosCore:proxy_account_data result:resultHash level:level + 1 checked:checked_hash];

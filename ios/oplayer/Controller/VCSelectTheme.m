@@ -107,8 +107,8 @@
          @"theme", // Parameter Name
          nil];
         //  [统计]
-        [Answers logCustomEventWithName:@"selectTheme" customAttributes:params];
-        [[SettingManager sharedSettingManager] setUseConfig:kSettingKey_ThemeInfo string:themeInfo];
+        [OrgUtils logEvents:@"selectTheme" params:params];
+        [[SettingManager sharedSettingManager] setUseConfig:kSettingKey_ThemeInfo obj:themeInfo];
         [[ThemeManager sharedThemeManager] switchTheme:self.currThemeCode reload:YES];
         [tableView reloadData];
     }

@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Looper
 import com.btsplusplus.fowallet.NativeInterface
 import com.btsplusplus.fowallet.R
+import com.btsplusplus.fowallet.utils.BigDecimalHandler
 import com.crashlytics.android.Crashlytics
 import com.fowallet.walletcore.bts.ChainObjectManager
 import org.json.JSONArray
@@ -188,12 +189,153 @@ class OrgUtils {
         }
 
         /**
-         * 计算抵押资产的强平触发价。
+         *  (public) 计算在爆仓时最少需要卖出的资产数量，如果没设置目标抵押率则全部卖出。如果有设置则根据目标抵押率计算。
          */
-        fun calcSettlementTriggerPrice(call_price: JSONObject, collateral_precision: Int, debt_precision: Int): BigDecimal {
-            val n_callprice_base = bigDecimalfromAmount(call_price.getJSONObject("base").getString("amount"), collateral_precision)
-            val n_callprice_quote = bigDecimalfromAmount(call_price.getJSONObject("quote").getString("amount"), debt_precision)
-            return n_callprice_quote.divide(n_callprice_base, debt_precision, BigDecimal.ROUND_UP)
+        fun calcSettlementSellNumbers(call_order: JSONObject, debt_precision: Int, collateral_precision: Int, feed_price: BigDecimal, call_price: BigDecimal, mcr: BigDecimal, mssr: BigDecimal): BigDecimal {
+            val collateral = call_order.getString("collateral")
+            val debt = call_order.getString("debt")
+            val n_collateral = bigDecimalfromAmount(collateral, collateral_precision)
+            val n_debt = bigDecimalfromAmount(debt, debt_precision)
+
+            val ceil_handler = BigDecimalHandler(BigDecimal.ROUND_UP, collateral_precision)
+
+            val target_collateral_ratio = call_order.optString("target_collateral_ratio", null)
+            if (target_collateral_ratio != null) {
+                //  卖出部分，只要抵押率回到目标抵押率即可。
+                //  =============================================================
+                //  公式：n为最低卖出数量
+                //  即 新抵押率 = 新总估值 / 新总负债
+                //
+                //  (collateral - n) * feed_price
+                //  -----------------------------  >= target_collateral_ratio
+                //  (debt - n * feed_price / mssr)
+                //
+                //  即:
+                //          target_collateral_ratio * debt - feed_price * collateral
+                //  n >= --------------------------------------------------------------
+                //          feed_price * (target_collateral_ratio / mssr - 1)
+                //  =============================================================
+                var n_target_collateral_ratio = bigDecimalfromAmount(target_collateral_ratio, 3)
+
+                //  目标抵押率和MCR之间取最大值
+                if (n_target_collateral_ratio < mcr) {
+                    n_target_collateral_ratio = mcr
+                }
+
+                //  开始计算
+                val n1 = n_target_collateral_ratio.multiply(n_debt).subtract(feed_price.multiply(n_collateral))
+                val n2 = feed_price.multiply(n_target_collateral_ratio.divide(mssr, kBigDecimalDefaultMaxPrecision, kBigDecimalDefaultRoundingMode).subtract(BigDecimal.ONE))
+                return n1.divide(n2, ceil_handler.scale, ceil_handler.roundingMode)
+            } else {
+                //  卖出部分，覆盖所有债务即可。
+                return n_debt.divide(call_price, ceil_handler.scale, ceil_handler.roundingMode)
+            }
+        }
+
+        /**
+         * (public) 计算强平触发价格。
+         * call_price = (debt × MCR) ÷ collateral
+         */
+        fun calcSettlementTriggerPrice(debt_amount: String, collateral_amount: String, debt_precision: Int, collateral_precision: Int, n_mcr: BigDecimal, invert: Boolean, handler: BigDecimalHandler?, set_divide_precision: Boolean): BigDecimal {
+            val n_debt = bigDecimalfromAmount(debt_amount, debt_precision)
+            val n_collateral = bigDecimalfromAmount(collateral_amount, collateral_precision)
+
+            var n = n_debt.multiply(n_mcr)
+            if (set_divide_precision) {
+                val cell_hanndler = handler
+                        ?: BigDecimalHandler(BigDecimal.ROUND_UP, if (invert) collateral_precision else debt_precision)
+                n = if (invert) {
+                    BigDecimal.ONE.divide(n.divide(n_collateral, kBigDecimalDefaultMaxPrecision, kBigDecimalDefaultRoundingMode), cell_hanndler.scale, cell_hanndler.roundingMode)
+                } else {
+                    n.divide(n_collateral, cell_hanndler.scale, cell_hanndler.roundingMode)
+                }
+            } else {
+                n = n.divide(n_collateral, kBigDecimalDefaultMaxPrecision, kBigDecimalDefaultRoundingMode)
+                if (invert) {
+                    n = BigDecimal.ONE.divide(n, kBigDecimalDefaultMaxPrecision, kBigDecimalDefaultRoundingMode)
+                }
+            }
+
+            return n
+        }
+
+        /**
+         *  (public) 合并普通盘口信息和爆仓单信息。
+         */
+        fun mergeOrderBook(normal_order_book: JSONObject, settlement_data: JSONObject?): JSONObject {
+            if (settlement_data != null && settlement_data.optInt("settlement_account_number") > 0) {
+                var bidArray = normal_order_book.getJSONArray("bids")
+                var askArray = normal_order_book.getJSONArray("asks")
+
+                val n_call_price = settlement_data.get("call_price_market") as BigDecimal
+                val f_call_price = n_call_price.toDouble()
+
+                val new_array = JSONArray()
+                var new_amount_sum = 0.0
+                var inserted = false
+                val invert = settlement_data.getBoolean("invert")
+
+                for (item in (if (invert) bidArray else askArray).forin<JSONObject>()) {
+                    val order = item!!
+                    val f_price = order.getDouble("price")
+                    val f_quote = order.getDouble("quote")
+                    val keep = if (invert) {
+                        f_price > f_call_price
+                    } else {
+                        f_price < f_call_price
+                    }
+                    if (keep) {
+                        new_amount_sum += f_quote
+                        new_array.put(order)
+                        continue
+                    }
+                    if (!inserted) {
+                        //  insert
+                        val quote_amount: Double
+                        val base_amount: Double
+                        val total_sell_amount = (settlement_data.get("total_sell_amount") as BigDecimal).toDouble()
+                        val total_buy_amount = (settlement_data.get("total_buy_amount") as BigDecimal).toDouble()
+                        if (invert) {
+                            quote_amount = total_buy_amount
+                            base_amount = total_sell_amount
+                        } else {
+                            quote_amount = total_sell_amount
+                            base_amount = total_buy_amount
+                        }
+                        new_amount_sum += quote_amount
+
+                        new_array.put(JSONObject().apply {
+                            put("price", f_call_price)
+                            put("quote", quote_amount)
+                            put("base", base_amount)
+                            put("sum", new_amount_sum)
+                            put("iscall", true)
+                        })
+
+                        inserted = true
+                    }
+
+                    new_amount_sum += f_quote
+                    val base = order.get("base")
+                    new_array.put(JSONObject().apply {
+                        put("price", f_price)
+                        put("quote", f_quote)
+                        put("base", base)
+                        put("sum", new_amount_sum)
+                    })
+                }
+
+                if (invert) {
+                    bidArray = new_array
+                } else {
+                    askArray = new_array
+                }
+
+                //  返回新的 order book
+                return jsonObjectfromKVS("bids", bidArray, "asks", askArray)
+            } else {
+                return normal_order_book
+            }
         }
 
         /**
@@ -208,11 +350,11 @@ class OrgUtils {
         /**
          * 根据 price_item 计算价格。REMARK：price_item 包含 base 和 quote 对象，base 和 quote 包含 asset_id 和 amount 字段。
          */
-        fun calcPriceFromPriceObject(price_item: JSONObject, base_id: String, base_precision: Int, quote_precision: Int, invert: Boolean = false, roundingMode: Int = BigDecimal.ROUND_HALF_UP, set_divide_precision: Boolean = true): BigDecimal {
+        fun calcPriceFromPriceObject(price_item: JSONObject, base_id: String, base_precision: Int, quote_precision: Int, invert: Boolean = false, roundingMode: Int = BigDecimal.ROUND_HALF_UP, set_divide_precision: Boolean = true): BigDecimal? {
             val item01 = price_item.getJSONObject("base")
             val item02 = price_item.getJSONObject("quote")
-            var base: JSONObject
-            var quote: JSONObject
+            val base: JSONObject
+            val quote: JSONObject
             if (item01.getString("asset_id") == base_id) {
                 base = item01
                 quote = item02
@@ -220,20 +362,28 @@ class OrgUtils {
                 base = item02
                 quote = item01
             }
-            val n_base = bigDecimalfromAmount(base.getString("amount"), base_precision)
-            val n_quote = bigDecimalfromAmount(quote.getString("amount"), quote_precision)
-            //  REMARK：12几乎是不可能达到的精度。
-            if (invert) {
-                if (set_divide_precision) {
-                    return n_base.divide(n_quote, base_precision, roundingMode)
+
+            val s_base_amount = base.getString("amount")
+            val s_quote_amount = quote.getString("amount")
+            //  REMARK：价格失效（比如喂价过期等情况）
+            if (s_base_amount.toLong() == 0L || s_quote_amount.toLong() == 0L) {
+                return null
+            }
+
+            val n_base = bigDecimalfromAmount(s_base_amount, base_precision)
+            val n_quote = bigDecimalfromAmount(s_quote_amount, quote_precision)
+
+            return if (set_divide_precision) {
+                if (invert) {
+                    n_base.divide(n_quote, base_precision, roundingMode)
                 } else {
-                    return n_base.divide(n_quote, 12, roundingMode)
+                    n_quote.divide(n_base, quote_precision, roundingMode)
                 }
             } else {
-                if (set_divide_precision) {
-                    return n_quote.divide(n_base, quote_precision, roundingMode)
+                if (invert) {
+                    n_base.divide(n_quote, kBigDecimalDefaultMaxPrecision, roundingMode)
                 } else {
-                    return n_quote.divide(n_base, 12, roundingMode)
+                    n_quote.divide(n_base, kBigDecimalDefaultMaxPrecision, roundingMode)
                 }
             }
         }
@@ -423,7 +573,7 @@ class OrgUtils {
             if (prikey == null) {
                 return null
             }
-            return NativeInterface.sharedNativeInterface().bts_gen_address_from_private_key32(prikey)?.utf8String()
+            return NativeInterface.sharedNativeInterface().bts_gen_address_from_private_key32(prikey, ChainObjectManager.sharedChainObjectManager().grapheneAddressPrefix.utf8String())?.utf8String()
         }
 
         /**
@@ -434,7 +584,7 @@ class OrgUtils {
             if (prikey == null) {
                 return null
             }
-            return NativeInterface.sharedNativeInterface().bts_gen_address_from_private_key32(prikey)?.utf8String()
+            return NativeInterface.sharedNativeInterface().bts_gen_address_from_private_key32(prikey, ChainObjectManager.sharedChainObjectManager().grapheneAddressPrefix.utf8String())?.utf8String()
         }
 
         /**
@@ -500,6 +650,48 @@ class OrgUtils {
         }
 
         /**
+         *  获取 worker 类型。0:refund 1:vesting 2:burn
+         */
+        fun getWorkerType(worker_json_object: JSONObject): Int {
+            val worker = worker_json_object.optJSONArray("worker")
+            if (worker != null && worker.length() > 0) {
+                return worker.getInt(0)
+            }
+            //  default is vesting worker
+            return EBitsharesWorkType.ebwt_vesting.value
+        }
+
+        /**
+         *  从操作的结果结构体中提取新对象ID。
+         */
+        fun extractNewObjectIDFromOperationResult(operation_result: JSONArray?): String? {
+            if (operation_result != null && operation_result.length() == 2 && operation_result.getInt(0) == 1) {
+                return operation_result.getString(1)
+            }
+            return null
+        }
+
+        /**
+         *  从广播交易结果获取新生成的对象ID号（比如新的订单号、新HTLC号等）
+         *  考虑到数据结构可能变更，加各种safe判断。
+         *  REMARK：仅考虑一个 op 的情况，如果一个交易包含多个 op 则不支持。
+         */
+        fun extractNewObjectID(transaction_confirmation_list: JSONArray?): String? {
+            val new_object_id = null
+            if (transaction_confirmation_list != null && transaction_confirmation_list.length() > 0) {
+                val trx = transaction_confirmation_list.getJSONObject(0).optJSONObject("trx")
+                if (trx != null) {
+                    val operation_results = trx.optJSONArray("operation_results")
+                    if (operation_results != null) {
+                        val operation_result = operation_results.optJSONArray(0)
+                        return extractNewObjectIDFromOperationResult(operation_result)
+                    }
+                }
+            }
+            return new_object_id
+        }
+
+        /**
          *  提取OPDATA中所有的石墨烯ID信息。
          */
         fun extractObjectID(opcode: Int, opdata: JSONObject, container: JSONObject) {
@@ -538,6 +730,22 @@ class OrgUtils {
                 }
                 EBitsharesOperations.ebo_account_update.value -> {
                     container.put(opdata.getString("account"), true)
+                    val owner = opdata.optJSONObject("owner")
+                    if (owner != null) {
+                        owner.getJSONArray("account_auths").forEach<JSONArray> { item ->
+                            assert(item!!.length() == 2)
+                            val account_id = item.getString(0)
+                            container.put(account_id, true)
+                        }
+                    }
+                    val active = opdata.optJSONObject("active")
+                    if (active != null) {
+                        active.getJSONArray("account_auths").forEach<JSONArray> { item ->
+                            assert(item!!.length() == 2)
+                            val account_id = item.getString(0)
+                            container.put(account_id, true)
+                        }
+                    }
                 }
                 EBitsharesOperations.ebo_account_whitelist.value -> {
                     container.put(opdata.getString("authorizing_account"), true)
@@ -597,7 +805,7 @@ class OrgUtils {
                     //  TODO:
                 }
                 EBitsharesOperations.ebo_proposal_create.value -> {
-                    //  TODO:
+                    container.put(opdata.getString("fee_paying_account"), true)
                 }
                 EBitsharesOperations.ebo_proposal_update.value -> {
                     container.put(opdata.getString("fee_paying_account"), true)
@@ -661,7 +869,32 @@ class OrgUtils {
                     //  TODO:
                 }
                 EBitsharesOperations.ebo_asset_claim_fees.value -> {
-                    //  TODO:
+                    container.put(opdata.getString("issuer"), true)
+                    container.put(opdata.getJSONObject("amount_to_claim").getString("asset_id"), true)
+                }
+                EBitsharesOperations.ebo_asset_update_issuer.value -> {
+                    container.put(opdata.getString("issuer"), true)
+                    container.put(opdata.getString("asset_to_update"), true)
+                    container.put(opdata.getString("new_issuer"), true)
+                }
+                EBitsharesOperations.ebo_htlc_create.value -> {
+                    container.put(opdata.getString("from"), true)
+                    container.put(opdata.getString("to"), true)
+                    container.put(opdata.getJSONObject("amount").getString("asset_id"), true)
+                }
+                EBitsharesOperations.ebo_htlc_redeem.value -> {
+                    container.put(opdata.getString("redeemer"), true)
+                }
+                EBitsharesOperations.ebo_htlc_redeemed.value -> {
+                    container.put(opdata.getString("redeemer"), true)
+                    container.put(opdata.getString("to"), true)
+                    container.put(opdata.getJSONObject("amount").getString("asset_id"), true)
+                }
+                EBitsharesOperations.ebo_htlc_extend.value -> {
+                    container.put(opdata.getString("update_issuer"), true)
+                }
+                EBitsharesOperations.ebo_htlc_refund.value -> {
+                    container.put(opdata.getString("to"), true)
                 }
                 else -> {
                 }
@@ -671,12 +904,11 @@ class OrgUtils {
         /**
          *  转换OP数据为UI显示数据。
          */
-        fun processOpdata2UiData(opcode: Int, opdata: JSONObject, isproposal: Boolean, ctx: Context): JSONObject {
+        fun processOpdata2UiData(opcode: Int, opdata: JSONObject, opresult: JSONArray?, isproposal: Boolean, ctx: Context): JSONObject {
             val chainMgr = ChainObjectManager.sharedChainObjectManager()
 
-            //  TODO:多语言
-            var name = "未知操作"
-            var desc = "未知的操作内容。"
+            var name = R.string.kOpType_unknown_op.xmlstring(ctx)
+            var desc = String.format(R.string.kOpDesc_unknown_op.xmlstring(ctx), opcode.toString())
             var color = R.color.theme01_textColorMain
 
             when (opcode) {
@@ -758,8 +990,23 @@ class OrgUtils {
                 }
                 EBitsharesOperations.ebo_account_whitelist.value -> {
                     name = R.string.kOpType_account_whitelist.xmlstring(ctx)
-                    desc = R.string.kOpDesc_account_whitelist.xmlstring(ctx)
-                    //  TODO:待细化
+
+                    val new_listing_flag = opdata.getInt("new_listing")
+                    val in_white_list = new_listing_flag.and(EBitsharesWhiteListFlag.ebwlf_white_listed.value) != 0
+                    val in_black_list = new_listing_flag.and(EBitsharesWhiteListFlag.ebwlf_black_listed.value) != 0
+
+                    val authorizing_account = chainMgr.getChainObjectByID(opdata.getString("authorizing_account")).getString("name")
+                    val account_to_list = chainMgr.getChainObjectByID(opdata.getString("account_to_list")).getString("name")
+
+                    if (in_white_list && in_black_list) {
+                        desc = String.format(R.string.kOpDesc_account_whitelist_both.xmlstring(ctx), authorizing_account, account_to_list)
+                    } else if (in_white_list) {
+                        desc = String.format(R.string.kOpDesc_account_whitelist_white.xmlstring(ctx), authorizing_account, account_to_list)
+                    } else if (in_black_list) {
+                        desc = String.format(R.string.kOpDesc_account_whitelist_black.xmlstring(ctx), authorizing_account, account_to_list)
+                    } else {
+                        desc = String.format(R.string.kOpDesc_account_whitelist_none.xmlstring(ctx), authorizing_account, account_to_list)
+                    }
                 }
                 EBitsharesOperations.ebo_account_upgrade.value -> {
                     name = R.string.kOpType_account_upgrade.xmlstring(ctx)
@@ -782,8 +1029,8 @@ class OrgUtils {
                 }
                 EBitsharesOperations.ebo_asset_update.value -> {
                     name = R.string.kOpType_asset_update.xmlstring(ctx)
-                    desc = R.string.kOpDesc_asset_update.xmlstring(ctx)
-                    //  TODO:待细化
+                    val symbol = chainMgr.getChainObjectByID(opdata.getString("asset_to_update")).getString("symbol")
+                    desc = String.format(R.string.kOpDesc_asset_update.xmlstring(ctx), symbol)
                 }
                 EBitsharesOperations.ebo_asset_update_bitasset.value -> {
                     name = R.string.kOpType_asset_update_bitasset.xmlstring(ctx)
@@ -792,8 +1039,8 @@ class OrgUtils {
                 }
                 EBitsharesOperations.ebo_asset_update_feed_producers.value -> {
                     name = R.string.kOpType_asset_update_feed_producers.xmlstring(ctx)
-                    desc = R.string.kOpDesc_asset_update_feed_producers.xmlstring(ctx)
-                    //  TODO:待细化
+                    val user = chainMgr.getChainObjectByID(opdata.getString("asset_to_update")).getString("name")
+                    desc = String.format(R.string.kOpDesc_asset_update_feed_producers.xmlstring(ctx), user)
                 }
                 EBitsharesOperations.ebo_asset_issue.value -> {
                     name = R.string.kOpType_asset_issue.xmlstring(ctx)
@@ -802,8 +1049,8 @@ class OrgUtils {
                 }
                 EBitsharesOperations.ebo_asset_reserve.value -> {
                     name = R.string.kOpType_asset_reserve.xmlstring(ctx)
-                    desc = R.string.kOpDesc_asset_reserve.xmlstring(ctx)
-                    //  TODO:待细化
+                    val user = chainMgr.getChainObjectByID(opdata.getString("payer")).getString("name")
+                    desc = String.format(R.string.kOpDesc_asset_reserve.xmlstring(ctx), user, formatAssetAmountItem(opdata.getJSONObject("amount_to_reserve")))
                 }
                 EBitsharesOperations.ebo_asset_fund_fee_pool.value -> {
                     name = R.string.kOpType_asset_fund_fee_pool.xmlstring(ctx)
@@ -812,8 +1059,8 @@ class OrgUtils {
                 }
                 EBitsharesOperations.ebo_asset_settle.value -> {
                     name = R.string.kOpType_asset_settle.xmlstring(ctx)
-                    desc = R.string.kOpDesc_asset_settle.xmlstring(ctx)
-                    //  TODO:待细化
+                    val user = chainMgr.getChainObjectByID(opdata.getString("account")).getString("name")
+                    desc = String.format(R.string.kOpDesc_asset_settle.xmlstring(ctx), user, formatAssetAmountItem(opdata.getJSONObject("amount")))
                 }
                 EBitsharesOperations.ebo_asset_global_settle.value -> {
                     name = R.string.kOpType_asset_global_settle.xmlstring(ctx)
@@ -837,8 +1084,13 @@ class OrgUtils {
                 }
                 EBitsharesOperations.ebo_proposal_create.value -> {
                     name = R.string.kOpType_proposal_create.xmlstring(ctx)
-                    desc = R.string.kOpDesc_proposal_create.xmlstring(ctx)
-                    //  TODO:待细化
+                    val user = chainMgr.getChainObjectByID(opdata.getString("fee_paying_account")).getString("name")
+                    val new_proposal_id = extractNewObjectIDFromOperationResult(opresult)
+                    if (new_proposal_id != null) {
+                        desc = String.format(R.string.kOpDesc_proposal_create_with_id.xmlstring(ctx), user, new_proposal_id)
+                    } else {
+                        desc = String.format(R.string.kOpDesc_proposal_create.xmlstring(ctx), user)
+                    }
                 }
                 EBitsharesOperations.ebo_proposal_update.value -> {
                     name = R.string.kOpType_proposal_update.xmlstring(ctx)
@@ -942,8 +1194,72 @@ class OrgUtils {
                 }
                 EBitsharesOperations.ebo_asset_claim_fees.value -> {
                     name = R.string.kOpType_asset_claim_fees.xmlstring(ctx)
-                    desc = R.string.kOpDesc_asset_claim_fees.xmlstring(ctx)
+                    val user = chainMgr.getChainObjectByID(opdata.getString("issuer")).getString("name")
+                    desc = String.format(R.string.kOpDesc_asset_claim_fees.xmlstring(ctx), user, formatAssetAmountItem(opdata.getJSONObject("amount_to_claim")))
+                }
+                EBitsharesOperations.ebo_fba_distribute.value -> {
+                    name = R.string.kOpType_fba_distribute.xmlstring(ctx)
+                    desc = R.string.kOpDesc_fba_distribute.xmlstring(ctx)
                     //  TODO:待细化
+                }
+                EBitsharesOperations.ebo_bid_collateral.value -> {
+                    name = R.string.kOpType_bid_collateral.xmlstring(ctx)
+                    desc = R.string.kOpDesc_bid_collateral.xmlstring(ctx)
+                    //  TODO:待细化
+                }
+                EBitsharesOperations.ebo_execute_bid.value -> {
+                    name = R.string.kOpType_execute_bid.xmlstring(ctx)
+                    desc = R.string.kOpDesc_execute_bid.xmlstring(ctx)
+                    //  TODO:待细化
+                }
+                EBitsharesOperations.ebo_asset_claim_pool.value -> {
+                    name = R.string.kOpType_asset_claim_pool.xmlstring(ctx)
+                    desc = R.string.kOpDesc_asset_claim_pool.xmlstring(ctx)
+                    //  TODO:待细化
+                }
+                EBitsharesOperations.ebo_asset_update_issuer.value -> {
+                    name = R.string.kOpType_asset_update_issuer.xmlstring(ctx)
+                    val issuer = chainMgr.getChainObjectByID(opdata.getString("issuer")).getString("name")
+                    val asset_to_update = chainMgr.getChainObjectByID(opdata.getString("asset_to_update")).getString("symbol")
+                    val new_issuer = chainMgr.getChainObjectByID(opdata.getString("new_issuer")).getString("name")
+                    desc = String.format(R.string.kOpDesc_asset_update_issuer.xmlstring(ctx), issuer, asset_to_update, new_issuer)
+                }
+                EBitsharesOperations.ebo_htlc_create.value -> {
+                    name = R.string.kOpType_htlc_create.xmlstring(ctx)
+                    val from = chainMgr.getChainObjectByID(opdata.getString("from")).getString("name")
+                    val to = chainMgr.getChainObjectByID(opdata.getString("to")).getString("name")
+                    val str_amount = formatAssetAmountItem(opdata.getJSONObject("amount"))
+                    val new_htlc_id = extractNewObjectIDFromOperationResult(opresult)
+                    if (new_htlc_id != null) {
+                        desc = String.format(R.string.kOpDesc_htlc_create_with_id.xmlstring(ctx), from, str_amount, to, new_htlc_id)
+                    } else {
+                        desc = String.format(R.string.kOpDesc_htlc_create.xmlstring(ctx), from, str_amount, to)
+                    }
+                }
+                EBitsharesOperations.ebo_htlc_redeem.value -> {
+                    name = R.string.kOpType_htlc_redeem.xmlstring(ctx)
+                    val hex_preimage = opdata.getString("preimage")
+                    assert(Utils.isValidHexString(hex_preimage))
+                    val raw_preimage = hex_preimage.hexDecode()
+                    val redeemer = chainMgr.getChainObjectByID(opdata.getString("redeemer")).getString("name")
+                    desc = String.format(R.string.kOpDesc_htlc_redeem.xmlstring(ctx), redeemer, raw_preimage.utf8String(), opdata.getString("htlc_id"))
+                }
+                EBitsharesOperations.ebo_htlc_redeemed.value -> {
+                    name = R.string.kOpType_htlc_redeemed.xmlstring(ctx)
+                    val redeemer = chainMgr.getChainObjectByID(opdata.getString("redeemer")).getString("name")
+                    val to = chainMgr.getChainObjectByID(opdata.getString("to")).getString("name")
+                    val str_amount = formatAssetAmountItem(opdata.getJSONObject("amount"))
+                    desc = String.format(R.string.kOpDesc_htlc_redeemed.xmlstring(ctx), redeemer, str_amount, to, opdata.getString("htlc_id"))
+                }
+                EBitsharesOperations.ebo_htlc_extend.value -> {
+                    name = R.string.kOpType_htlc_extend.xmlstring(ctx)
+                    val update_issuer = chainMgr.getChainObjectByID(opdata.getString("update_issuer")).getString("name")
+                    desc = String.format(R.string.kOpDesc_htlc_extend.xmlstring(ctx), update_issuer, opdata.getString("seconds_to_add"), opdata.getString("htlc_id"))
+                }
+                EBitsharesOperations.ebo_htlc_refund.value -> {
+                    name = R.string.kOpType_htlc_refund.xmlstring(ctx)
+                    val to = chainMgr.getChainObjectByID(opdata.getString("to")).getString("name")
+                    desc = String.format(R.string.kOpDesc_htlc_refund.xmlstring(ctx), to, opdata.getString("htlc_id"))
                 }
                 else -> {
                 }

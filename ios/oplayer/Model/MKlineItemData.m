@@ -17,16 +17,19 @@
 
 @implementation MKlineItemData
 
+@synthesize dataIndex;
 @synthesize showIndex;
 @synthesize isRise, isMaxPrice, isMinPrice, isMax24Vol;
 @synthesize nPriceOpen, nPriceClose, nPriceHigh, nPriceLow;
-@synthesize n24Vol;
-@synthesize ma5, ma10, ma30, ma60;
+@synthesize n24Vol, n24TotalAmount, nAvgPrice;
+@synthesize ma60;
+@synthesize main_index01, main_index02, main_index03, fOffsetMainIndex01, fOffsetMainIndex02, fOffsetMainIndex03;
+@synthesize adv_index01, adv_index02, adv_index03, fOffsetAdvIndex01, fOffsetAdvIndex02, fOffsetAdvIndex03;
 @synthesize vol_ma5, vol_ma10;
 @synthesize change, change_percent;
 @synthesize fOffsetOpen, fOffsetClose, fOffsetHigh, fOffsetLow;
 @synthesize fOffset24Vol;
-@synthesize fOffsetMA5, fOffsetMA10, fOffsetMA30, fOffsetMA60;
+@synthesize fOffsetMA60;
 @synthesize fOffsetVolMA5, fOffsetVolMA10;
 @synthesize date;
 
@@ -36,6 +39,7 @@
 
 - (void)reset
 {
+    self.dataIndex = 0;
     self.showIndex = 0;
     
     self.isRise = NO;
@@ -49,11 +53,24 @@
     self.nPriceLow = nil;
     
     self.n24Vol = nil;
+    self.n24TotalAmount = nil;
+    self.nAvgPrice = nil;
     
-    self.ma5 = nil;
-    self.ma10 = nil;
-    self.ma30 = nil;
     self.ma60 = nil;
+    
+    self.main_index01 = nil;
+    self.main_index02 = nil;
+    self.main_index03 = nil;
+    self.fOffsetMainIndex01 = 0;
+    self.fOffsetMainIndex02 = 0;
+    self.fOffsetMainIndex03 = 0;
+    
+    self.adv_index01 = nil;
+    self.adv_index02 = nil;
+    self.adv_index03 = nil;
+    self.fOffsetAdvIndex01 = 0;
+    self.fOffsetAdvIndex02 = 0;
+    self.fOffsetAdvIndex03 = 0;
     
     self.vol_ma5 = nil;
     self.vol_ma10 = nil;
@@ -68,9 +85,6 @@
     
     self.fOffset24Vol = 0;
     
-    self.fOffsetMA5 = 0;
-    self.fOffsetMA10 = 0;
-    self.fOffsetMA30 = 0;
     self.fOffsetMA60 = 0;
     
     self.fOffsetVolMA5 = 0;
@@ -150,7 +164,9 @@
         id n_close_price = [n_close_base decimalNumberByDividingBy:n_close_quote withBehavior:ceilHandler];
         
         fillto.n24Vol = [NSDecimalNumber decimalNumberWithMantissa:[[data objectForKey:@"quote_volume"] unsignedLongLongValue]
-                                                         exponent:-quote_precision isNegative:NO];;
+                                                          exponent:-quote_precision isNegative:NO];
+        fillto.n24TotalAmount = [NSDecimalNumber decimalNumberWithMantissa:[[data objectForKey:@"base_volume"] unsignedLongLongValue]
+                                                                  exponent:-base_precision isNegative:NO];
         
         //  n_open_price <= n_close_price
         fillto.isRise = [n_open_price compare:n_close_price] != NSOrderedDescending;
@@ -180,7 +196,9 @@
         id n_close_price = [n_close_quote decimalNumberByDividingBy:n_close_base withBehavior:ceilHandler];
         
         fillto.n24Vol = [NSDecimalNumber decimalNumberWithMantissa:[[data objectForKey:@"base_volume"] unsignedLongLongValue]
-                                                         exponent:-quote_precision isNegative:NO];;
+                                                          exponent:-quote_precision isNegative:NO];
+        fillto.n24TotalAmount = [NSDecimalNumber decimalNumberWithMantissa:[[data objectForKey:@"quote_volume"] unsignedLongLongValue]
+                                                                  exponent:-base_precision isNegative:NO];
         
         //  n_open_price <= n_close_price
         fillto.isRise = [n_open_price compare:n_close_price] != NSOrderedDescending;
@@ -190,6 +208,13 @@
         fillto.nPriceClose = n_close_price;
         fillto.nPriceHigh = n_low_price;
         fillto.nPriceLow = n_high_price;
+    }
+    
+    //  成交均价
+    if ([fillto.n24Vol compare:[NSDecimalNumber zero]] > 0){
+        fillto.nAvgPrice = [fillto.n24TotalAmount decimalNumberByDividingBy:fillto.n24Vol withBehavior:ceilHandler];
+    }else{
+        fillto.nAvgPrice = nil;
     }
     
     //  计算涨跌额和涨跌幅

@@ -210,7 +210,7 @@ enum
 
 - (void)onAmountAllButtonClicked:(UIButton*)sender
 {
-    _tf_amount.text = [NSString stringWithFormat:@"%@", _n_available];
+    _tf_amount.text = [OrgUtils formatFloatValue:_n_available usesGroupingSeparator:NO];
     [self onAmountChanged];
 }
 
@@ -230,10 +230,12 @@ enum
     _tf_memo = [self createTfWithRect:rect keyboard:UIKeyboardTypeDefault placeholder:placeHolderMemo];
     
     //  设置属性颜色等
+    _tf_memo.updateClearButtonTintColor = YES;
     _tf_memo.textColor = [ThemeManager sharedThemeManager].textColorMain;
     _tf_memo.attributedPlaceholder = [[NSAttributedString alloc] initWithString:placeHolderMemo
                                                                        attributes:@{NSForegroundColorAttributeName:[ThemeManager sharedThemeManager].textColorGray,
                                                                                     NSFontAttributeName:[UIFont systemFontOfSize:17]}];
+    _tf_amount.updateClearButtonTintColor = YES;
     _tf_amount.textColor = [ThemeManager sharedThemeManager].textColorMain;
     _tf_amount.attributedPlaceholder = [[NSAttributedString alloc] initWithString:placeHolderAmount
                                                                        attributes:@{NSForegroundColorAttributeName:[ThemeManager sharedThemeManager].textColorGray,
@@ -246,7 +248,7 @@ enum
     UIButton* btn100 = [UIButton buttonWithType:UIButtonTypeSystem];
     btn100.titleLabel.font = [UIFont systemFontOfSize:13];
     [btn100 setTitle:NSLocalizedString(@"kLabelSendAll", @"全部") forState:UIControlStateNormal];
-    [btn100 setTitleColor:[ThemeManager sharedThemeManager].textColorNormal forState:UIControlStateNormal];
+    [btn100 setTitleColor:[ThemeManager sharedThemeManager].textColorHighlight forState:UIControlStateNormal];
     btn100.userInteractionEnabled = YES;
     [btn100 addTarget:self action:@selector(onAmountAllButtonClicked:) forControlEvents:UIControlEventTouchUpInside];
     btn100.frame = CGRectMake(6, 2, 40, 27);
@@ -300,7 +302,7 @@ enum
                                                    isNegative:NO];
     
     //  更新可用余额
-    _cellAssetAvailable.detailTextLabel.text = [NSString stringWithFormat:@"%@%@", _n_available, [new_asset objectForKey:@"symbol"]];
+    _cellAssetAvailable.detailTextLabel.text = [NSString stringWithFormat:@"%@%@", [OrgUtils formatFloatValue:_n_available], [new_asset objectForKey:@"symbol"]];
     
     //  切换资产清除当前输入的数量
     _tf_amount.text = @"";
@@ -341,7 +343,7 @@ enum
         return;
     }
     
-    id n_amount = [self auxGetStringDecimalNumberValue:str_amount];
+    id n_amount = [OrgUtils auxGetStringDecimalNumberValue:str_amount];
     
     //  <= 0 判断，只有 大于 才为 NSOrderedDescending。
     NSDecimalNumber* n_zero = [NSDecimalNumber zero];
@@ -503,7 +505,7 @@ enum
                           invoke_proposal_callback:NO
                                             opdata:[_transfer_args objectForKey:@"kOpData"]
                                          opaccount:[_full_account_data objectForKey:@"account"]
-                                              body:^(BOOL isProposal, NSDictionary *fee_paying_account)
+                                              body:^(BOOL isProposal, NSDictionary *proposal_create_args)
              {
                  assert(!isProposal);
                  // 有权限：转到交易确认界面。
@@ -552,21 +554,21 @@ enum
             [self refreshUI:full_data];
             [OrgUtils makeToast:NSLocalizedString(@"kVcTransferTipTxTransferFullOK", @"发送成功。")];
             //  [统计]
-            [Answers logCustomEventWithName:@"txTransferFullOK" customAttributes:@{@"account":account_id, @"asset":asset[@"symbol"]}];
+            [OrgUtils logEvents:@"txTransferFullOK" params:@{@"account":account_id, @"asset":asset[@"symbol"]}];
             return nil;
         })] catch:(^id(id error) {
             [self hideBlockView];
             [OrgUtils makeToast:NSLocalizedString(@"kVcTransferTipTxTransferOK", @"发送成功，但刷新界面数据失败，请稍后再试。")];
             //  [统计]
-            [Answers logCustomEventWithName:@"txTransferOK" customAttributes:@{@"account":account_id, @"asset":asset[@"symbol"]}];
+            [OrgUtils logEvents:@"txTransferOK" params:@{@"account":account_id, @"asset":asset[@"symbol"]}];
             return nil;
         })];
         return nil;
     })] catch:(^id(id error) {
         [self hideBlockView];
-        [OrgUtils makeToast:NSLocalizedString(@"kTipsTxRequestFailed", @"请求失败，请稍后再试。")];
+        [OrgUtils showGrapheneError:error];
         //  [统计]
-        [Answers logCustomEventWithName:@"txTransferFailed" customAttributes:@{@"asset":asset[@"symbol"]}];
+        [OrgUtils logEvents:@"txTransferFailed" params:@{@"asset":asset[@"symbol"]}];
         return nil;
     })];
 }
@@ -588,14 +590,10 @@ enum
     id asset = [_transfer_args objectForKey:@"asset"];
     assert(asset);
     
-    BOOL result = [OrgUtils isValidAmountOrPriceInput:textField.text
-                                                range:range
-                                           new_string:string
-                                            precision:[[asset objectForKey:@"precision"] integerValue]];
-    if (!result){
-        [textField.text stringByReplacingCharactersInRange:range withString:@""];
-    }
-    return result;
+    return [OrgUtils isValidAmountOrPriceInput:textField.text
+                                         range:range
+                                    new_string:string
+                                     precision:[[asset objectForKey:@"precision"] integerValue]];
 }
 
 - (void)onTextFieldDidChange:(UITextField*)textField
@@ -603,19 +601,11 @@ enum
     if (textField != _tf_amount){
         return;
     }
+    
+    //  更新小数点为APP默认小数点样式（可能和输入法中下小数点不同，比如APP里是`.`号，而输入法则是`,`号。
+    [OrgUtils correctTextFieldDecimalSeparatorDisplayStyle:textField];
+    
     [self onAmountChanged];
-}
-
-/**
- *  (private) 辅助 - 根据字符串获取 NSDecimalNumber 对象，如果字符串以小数点结尾，则默认添加0。
- */
-- (NSDecimalNumber*)auxGetStringDecimalNumberValue:(NSString*)str
-{
-    //  以小数点结尾则在默认添加0。
-    if ([str rangeOfString:@"."].location == [str length] - 1){
-        str = [NSString stringWithFormat:@"%@0", str];
-    }
-    return [NSDecimalNumber decimalNumberWithString:str];
 }
 
 /**
@@ -630,21 +620,21 @@ enum
     
     //  无效输入
     if (!str_amount || [str_amount isEqualToString:@""]){
-        _cellAssetAvailable.detailTextLabel.text = [NSString stringWithFormat:@"%@%@", _n_available, [asset objectForKey:@"symbol"]];
+        _cellAssetAvailable.detailTextLabel.text = [NSString stringWithFormat:@"%@%@", [OrgUtils formatFloatValue:_n_available], [asset objectForKey:@"symbol"]];
         _cellAssetAvailable.detailTextLabel.textColor = [ThemeManager sharedThemeManager].textColorMain;
         return;
     }
     
     //  获取输入的数量
-    id n_amount = [self auxGetStringDecimalNumberValue:str_amount];
+    id n_amount = [OrgUtils auxGetStringDecimalNumberValue:str_amount];
     
     //  _n_available < n_amount
     if ([_n_available compare:n_amount] == NSOrderedAscending){
         //  数量不足
-        _cellAssetAvailable.detailTextLabel.text = [NSString stringWithFormat:@"%@%@(%@)", _n_available, [asset objectForKey:@"symbol"], NSLocalizedString(@"kVcTransferTipAmountNotEnough", @"数量不足")];
+        _cellAssetAvailable.detailTextLabel.text = [NSString stringWithFormat:@"%@%@(%@)", [OrgUtils formatFloatValue:_n_available], [asset objectForKey:@"symbol"], NSLocalizedString(@"kVcTransferTipAmountNotEnough", @"数量不足")];
         _cellAssetAvailable.detailTextLabel.textColor = [ThemeManager sharedThemeManager].tintColor;
     }else{
-        _cellAssetAvailable.detailTextLabel.text = [NSString stringWithFormat:@"%@%@", _n_available, [asset objectForKey:@"symbol"]];
+        _cellAssetAvailable.detailTextLabel.text = [NSString stringWithFormat:@"%@%@", [OrgUtils formatFloatValue:_n_available], [asset objectForKey:@"symbol"]];
         _cellAssetAvailable.detailTextLabel.textColor = [ThemeManager sharedThemeManager].textColorMain;
     }
 }
@@ -848,14 +838,7 @@ enum
             }
                 break;
             case kVcSubAssetID:
-            {
-                //  TODO:帐号所持有的资产种类如果少于4、5种则考虑这样选择，太多的话考虑用单独的vc选择。
-                [VCCommonLogic showPicker:self selectAsset:_asset_list
-                                    title:NSLocalizedString(@"kVcTransferTipSelectAsset", @"请选择要转账的资产") callback:^(id selectItem) {
-                    [self setAsset:selectItem];
-                    [_mainTableView reloadData];
-                }];
-            }
+                [self onSelectAssetClicked];
                 break;
             default:
                 break;
@@ -872,29 +855,38 @@ enum
     }
 }
 
-#pragma mark- MFMessageComposeViewControllerDelegate
-- (void)messageComposeViewController:(MFMessageComposeViewController *)controller didFinishWithResult:(MessageComposeResult)result
+/**
+ *  (private) 选择转账资产
+ */
+- (void)onSelectAssetClicked
 {
-    //  暂时什么都不处理
-}
-
-#pragma mark-
-#pragma drag back event
-
-- (void)onDragBackStart
-{
-    [self.view endEditing:YES];
+    id curr_asset = [_transfer_args objectForKey:@"asset"];
+    assert(curr_asset);
+    id curr_symbol = [curr_asset objectForKey:@"symbol"];
     
-    [_tf_amount safeResignFirstResponder];
-    [_tf_memo safeResignFirstResponder];
-}
-
-- (void)onDragBackFinish:(BOOL)bToTarget
-{
-    if (!bToTarget)
-    {
-        //  TODO:...
+    NSInteger defaultIndex = 0;
+    NSInteger idx = 0;
+    for (id asset in _asset_list) {
+        if ([[asset objectForKey:@"symbol"] isEqualToString:curr_symbol]){
+            defaultIndex = idx;
+            break;
+        }
+        ++idx;
     }
+    [[[MyPopviewManager sharedMyPopviewManager] showModernListView:self.navigationController
+                                                           message:NSLocalizedString(@"kVcTransferTipSelectAsset", @"请选择要转账的资产")
+                                                             items:_asset_list
+                                                           itemkey:@"symbol"
+                                                      defaultIndex:defaultIndex] then:(^id(id result) {
+        if (result){
+            id select_symbol = [result objectForKey:@"symbol"];
+            if (![select_symbol isEqualToString:curr_symbol]){
+                [self setAsset:result];
+                [_mainTableView reloadData];
+            }
+        }
+        return nil;
+    })];
 }
 
 @end

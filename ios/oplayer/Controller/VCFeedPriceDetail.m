@@ -294,8 +294,8 @@
         return;
     }
     //  [统计]
-    [Answers logCustomEventWithName:@"qa_tip_click" customAttributes:@{@"qa":@"qa_feedprice"}];
-    VCBtsaiWebView* vc = [[VCBtsaiWebView alloc] initWithUrl:@"http://btspp.io/qam.html#qa_feedprice"];
+    [OrgUtils logEvents:@"qa_tip_click" params:@{@"qa":@"qa_feedprice"}];
+    VCBtsaiWebView* vc = [[VCBtsaiWebView alloc] initWithUrl:@"https://btspp.io/qam.html#qa_feedprice"];
     vc.title = NSLocalizedString(@"kVcTitleWhatIsFeedPrice", @"什么是喂价？");
     [_owner pushViewController:vc vctitle:nil backtitle:kVcDefaultBackTitleName];
 }
@@ -316,7 +316,7 @@
         
         id asset = [[ChainObjectManager sharedChainObjectManager] getAssetBySymbol:[_asset objectForKey:@"symbol"]];
         assert(asset);
-        titleLabel.text = [NSString stringWithFormat:@"%@ %@", NSLocalizedString(@"kVcFeedCurrentFeedPrice", @"当前喂价"), _feedPriceInfo];
+        titleLabel.text = [NSString stringWithFormat:@"%@ %@", NSLocalizedString(@"kVcFeedCurrentFeedPrice", @"当前喂价"), [OrgUtils formatFloatValue:_feedPriceInfo]];
         
         [myView addSubview:titleLabel];
         

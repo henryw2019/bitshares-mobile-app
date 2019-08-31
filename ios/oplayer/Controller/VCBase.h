@@ -39,6 +39,10 @@
 #import "GrapheneConnectionManager.h"
 
 #import "SCLAlertView.h"
+#import "OrgUtils.h"
+#import <Flurry/Flurry.h>
+
+#import "LangManager.h"
 
 @interface VCBase : UIViewController<UITextFieldDelegate,UITableViewDelegate>
 {
@@ -133,7 +137,7 @@
     invoke_proposal_callback:(BOOL)invoke_proposal_callback
                       opdata:(id)opdata
                    opaccount:(id)opaccount
-                        body:(void (^)(BOOL isProposal, NSDictionary* fee_paying_account))body
+                        body:(void (^)(BOOL isProposal, NSDictionary* proposal_create_args))body
             success_callback:(void (^)())success_callback;
 /**
  *  (public) 确保交易权限。足够-发起普通交易，不足-提醒用户发起提案交易。
@@ -143,7 +147,7 @@
                 invoke_proposal_callback:(BOOL)invoke_proposal_callback
                                   opdata:(id)opdata
                                opaccount:(id)opaccount
-                                    body:(void (^)(BOOL isProposal, NSDictionary* fee_paying_account))body;
+                                    body:(void (^)(BOOL isProposal, NSDictionary* proposal_create_args))body;
 /**
  *  确保钱包已经解锁、检测是否包含资金私钥权限。
  */
@@ -161,6 +165,11 @@
  */
 - (void)delay:(void (^)())body;
 
+/**
+ *  (public) refresh back text when SWITCH LANGUAGE
+ */
+- (void)refreshBackButtonText;
+
 - (void)pushViewController:(UIViewController*)vc vctitle:(NSString*)vctitle backtitle:(NSString*)backtitle;
 - (void)clearPushViewController:(UIViewController*)vc vctitle:(NSString*)vctitle backtitle:(NSString*)backtitle;
 
@@ -169,6 +178,9 @@
 
 #pragma mark- switch theme
 - (void)switchTheme;
+
+#pragma mark- switch language
+- (void)switchLanguage;
 
 
 #pragma mark- override in subclass

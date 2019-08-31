@@ -51,11 +51,12 @@
 
 /* 服务界面 */
 "kServicesCellLabelTransfer" = "转账";
-"kServicesCellLabelAccountSearch" = "帐号查询";
+"kServicesCellLabelAccountSearch" = "账号查询";
 "kServicesCellLabelRank" = "抵押排行";
 "kServicesCellLabelVoting" = "投票";
 "kServicesCellLabelFeedPrice" = "喂价详情";
 "kServicesCellLabelDepositWithdraw" = "充币提币";
+"kServicesCellLabelAdvFunction" = "高级功能";
 
 /* 抵押排行 */
 "kVcRankCurrentFeedPrice" = "当前喂价";
@@ -98,7 +99,8 @@
 "kVcDWTipsNetworkConfirmWithN" = "您充币到上述地址后，需要等待网络确认，%@次网络确认后到账。\n";
 "kVcDWTipsFindCustomService" = "如有任何问题，请联系网关客服。";
 "kVcDWErrTipsRequestDepositAddrFailed" = "获取充币地址异常，请联系网关客服。";
-"kVcDWErrTipsRequestDepositAddrFailed2" = "获取充币地址异常，字段'%@'校验失败，请联系网关客服。";
+"kVcDWErrTipsRequestDepositAddrFailed2" = "获取充币地址异常，字段\"%@\"校验失败，请联系网关客服。";
+"kVcDWErrTipsRequestWithdrawAddrFailed" = "获取提币地址异常，请联系网关客服。";
 "kVcDWHelpTitleSupport" = "帮助支持";
 "kVcDWHelpTitleQQ" = "客服QQ";
 "kVcDWHelpTitleTelegram" = "电报";
@@ -111,6 +113,8 @@
 "kVcDWCellMinWithdrawNumber" = "最小提币数量";
 "kVcDWCellWithdrawFee" = "提币手续费";
 "kVcDWCellWithdrawGatewayAccount" = "网关账号";
+"kVcDWCellMaxWithdrawNumberOnce" = "单次最大提币数量";
+"kVcDWCellMaxWithdrawNumber24Hours" = "24小时最大提币数量";
 "kVcDWCellWithdrawFinalValue" = "实际到账";
 "kVcDWWithdrawSubmitButton" = "提币";
 "kVcDWSubmitTipsAddressCannotBeEmpty" = "提币地址不能为空。";
@@ -138,22 +142,40 @@
 "kLblCellMyBalance" = "我的资产";
 "kLblCellOrderManagement" = "订单管理";
 "kLblCellVestingBalance" = "待解冻金额";
-"kLblCellAboutBtspp" = "关于BTS++";
+"kLblCellAboutBtspp" = "关于";
 "kLblTipsPasswordModeNotSupportMultiSign" = "多签等功能仅支持钱包模式，是否为当前的账号创建本地钱包文件？";
 "kLblTipsConvertToWalletModeDone" = "创建钱包完毕。";
 
+/* 账号信息 */
+"kAccountPageBasicInfo" = "基本信息";
+"kAccountPageMemberInfo" = "会员信息";
+"kAccountBtnUpgradeToLifetimeMember" = "升级终身会员";
+"kAccountMembershipStatus" = "状态";
+"kAccountMembershipMyRefCode" = "我的推荐码";
+"kAccountMembershipNoRefCode" = "无";
+"kAccountMembershipMyRefCodeCopyOK" = "推荐码已复制";
+"kAccountUpgradeTipsMember" = "尊敬的终身会员，您已享受80%的手续费返现奖励。";
+"kAccountUpgradeTipsNotMember" = "现在升级终身会员，立享80%手续费返现奖励。";
+"kAccountUpgradeMemberSubmitTxFullOK" = "升级终身会员成功。";
+"kAccountUpgradeMemberSubmitTxOK" = "升级终身会员成功，但刷新界面失败，请稍后再试。";
+"kAccountUpgradeMemberCostAsk" = "升级终身会员需要花费 %@，是否继续？";
+
 /* 登录&注册&备份 */
-"kLoginPageModePassword" = "帐号模式";
+"kLoginPageModePassword" = "账号模式";
+"kLoginPageModeBrainKey" = "助记词";
 "kLoginPageModePrivateKey" = "私钥模式";
 "kLoginPageModeWallet" = "钱包模式";
-"kLoginTipsPlaceholderAccount" = "请输入 Bitshares 帐号名";
+"kLoginTipsPlaceholderAccount" = "请输入 Bitshares 账号名";
+"kLoginTipsPlaceholderBrainKey" = "请输入助记词，每个单词之间按空格分割。";
 "kLoginTipsPlaceholderTradePassword" = "请输入交易密码";
 "kLoginTipsPlaceholderActiveKey" = "请输入资金权限私钥";
 "kLoginTipsPlaceholderConfirmPassword" =  "请确认密码";
 "kLoginTipsPlaceholderWalletPassword" = "8位以上钱包文件密码";
+"kLoginTipsPlaceholderInputRefCode" = "引荐人推荐码（选填）";
+"kLoginCellLabelRefCode" = "推荐码";
 "kLoginTipsLoginOK" = "登录成功。";
 "kLoginTipsRegFullOK" = "注册成功。";
-"kLoginRegTipsAccountFormat" = "帐号由【小写字母】、【数字】、【-】、【.】号组成，且必须字母开头、字母或数字结尾。";
+"kLoginRegTipsAccountFormat" = "账号由【小写字母】、【数字】、【-】、【.】号组成，且必须字母开头、字母或数字结尾。";
 "kLoginRegTipsAccountPasswordFormat" = "12位以上字符，且必须包含大小写和数字。";
 "kLoginRegTipsWalletPasswordFormat" = "8位以上字符，且必须包含大小写和数字。";
 "kLoginTipsUnsupportImportWalletFile" = "该手机不支持导入钱包文件。";
@@ -176,37 +198,38 @@
 "kLoginImportTipsWalletIsEmpty" = "该钱包为空钱包，请重选选择。";
 "kLoginImportTipsWalletHaveManyAccounts" = "该钱包包含多个账户，不支持导入。";
 "kLoginImportTipsWalletNoPrivateKey" = "该钱包不包含密钥信息，请重新选择。";
-"kLoginImportTipsQueryAccountFailed" = "查询帐号信息失败，请稍后再试。";
+"kLoginImportTipsQueryAccountFailed" = "查询账号信息失败，请稍后再试。";
 "kLoginImportTipsWalletNoActiveKey" = "该钱包不包含资金权限密钥，请重新导入。";
 "kLoginImportTipsWalletNoFullActiveKey" =  "该钱包不包含完整资金权限密钥，请重新导入。";
-"kLoginSubmitTipsAccountIsEmpty" = "帐号名不能为空，请重新输入。";
+"kLoginSubmitTipsAccountIsEmpty" = "账号名不能为空，请重新输入。";
 "kLoginSubmitTipsTradePasswordFmtIncorrect" = "交易密码格式不正确，请重新输入。";
 "kLoginSubmitTipsWalletPasswordFmtIncorrect" = "钱包密码格式不正确，请重新输入。";
 "kLoginSubmitTipsPasswordFmtIncorrect" = "密码格式不正确，请重新输入。";
 "kLoginSubmitTipsConfirmPasswordFailed" = "两次输入的密码不一致，请重新输入。";
-"kLoginSubmitTipsAccountIsNotExist" = "帐号名不存在，请重新输入。";
-"kLoginSubmitTipsAccountAlreadyExist" = "帐号名已存在，请重新输入。";
+"kLoginSubmitTipsAccountIsNotExist" = "账号名不存在，请重新输入。";
+"kLoginSubmitTipsAccountAlreadyExist" = "账号名已存在，请重新输入。";
 "kLoginSubmitTipsAccountPasswordIncorrect" = "密码不正确，请重新输入。";
 "kLoginSubmitTipsAccountPasswordPermissionNotEnough" = "该密码权限不足。";
 "kLoginSubmitTipsInvalidPrivateKey" = "私钥数据无效，请重新输入。";
 "kLoginSubmitTipsPrivateKeyIncorrect" = "私钥不正确，请重新输入。";
-"kLoginSubmitTipsPrivateKeyPermissionNotEnough" = "该私钥权限不足。";
-"kLoginSubmitTipsAccountFmtIncorrect" = "帐号格式不正确，请重新输入。";
+"kLoginSubmitTipsBrainKeyIncorrect" = "助记词不正确，请重新输入。";
+"kLoginSubmitTipsPermissionNotEnoughAndCannotBeImported" = "资金权限不足，不可导入。";
+"kLoginSubmitTipsAccountFmtIncorrect" = "账号格式不正确，请重新输入。";
 "kLoginRegTipsRegOK" = "注册成功，但刷新失败，稍后直接登录即可。";
-"kLoginTipsWalletModeRegOK" = "注册成功，但获取帐号信息失败，请重新启动APP。";
-"kLoginCellAccountName" = "帐号 ";
+"kLoginTipsWalletModeRegOK" = "注册成功，但获取账号信息失败，请重新启动APP。";
+"kLoginCellAccountName" = "账号 ";
 "kLoginCellSetupTradePassword" =  "设置交易密码";
 "kLoginCellTradePassword" = "交易密码";
 "kLoginCellWalletPassword" = "钱包密码";
 "kLoginCellActivePrivateKey" = "资金私钥 ";
 "kLoginCellConfirmPassword" = "确认密码";
-"kLoginRegTipsAccountMode" = "提示：账号密码对应格式要求可以点击问号查看。\n注意：BTS++是去中心化区块链应用密码一旦丢失或遗忘将无法找回，请务必妥善保管。";
-"kLoginRegTipsWalletMode" = "提示：钱包密码对应格式要求可以点击问号查看。\n注意：BTS++是去中心化区块链应用，钱包文件和密码一旦丢失或遗忘将无法找回，建议您注册后将钱包文件做好备份，并妥善保管。※ 推荐使用钱包模式。";
+"kLoginRegTipsAccountMode" = "提示：账号密码对应格式要求可以点击问号查看。\n注意：比特股是去中心化区块链应用密码一旦丢失或遗忘将无法找回，请务必妥善保管。";
+"kLoginRegTipsWalletMode" = "提示：钱包密码对应格式要求可以点击问号查看。\n注意：比特股是去中心化区块链应用，钱包文件和密码一旦丢失或遗忘将无法找回，建议您注册后将钱包文件做好备份，并妥善保管。※ 推荐使用钱包模式。";
 "kLoginFaucetTipsInvalidArguments" = "参数无效。";
-"kLoginFaucetTipsInvalidAccountFmt" = "帐号格式无效。";
-"kLoginFaucetTipsAccountAlreadyExist" = "帐号已经存在。";
+"kLoginFaucetTipsInvalidAccountFmt" = "账号格式无效。";
+"kLoginFaucetTipsAccountAlreadyExist" = "账号已经存在。";
 "kLoginFaucetTipsUnknownError" = "未知错误，广播失败。";
-"kLoginFaucetTipsDeviceRegTooMany" = "该设备注册帐号数量过多。";
+"kLoginFaucetTipsDeviceRegTooMany" = "该设备注册账号数量过多。";
 "kLoginFaucetTipsDeviceRegTooFast" = "注册太频繁，请稍后再试。";
 "kLoginFaucetTipsServerMaintence" = "服务器维护中。";
 "kBackupMobilePhoneNotSupported" = "该手机不支持备份钱包文件。";
@@ -218,21 +241,27 @@
 "kBackupDownloaded" = "已下载";
 
 /* 账号基本信息 */
-"kAccLabelAccount" = "帐号";
+"kAccLabelAccount" = "账号";
 "kAccLabelReferrer" = "引荐人";
 "kAccLabelRegistrar" = "注册人";
 "kAccLabelLifetimeRef" = "终身会员引荐人";
-"kAccTipsLogout" = "注销登录将会从设备删除帐号相关信息，请确认您已经做好备份。是否继续注销？";
+"kAccTipsLogout" = "注销登录将会从设备删除账号相关信息，请确认您已经做好备份。是否继续注销？";
 
 /* 提案界面 */
 "kProposalTipsAskMissingActive" = "您没有账号 %@ 的资金权限，是否发起提案交易？";
 "kProposalTipsAskMissingOwner" = "您没有账号 %@ 的账号权限，是否发起提案交易？";
 "kProposalTipsSelectFeePayingAccount" = "请选择提案发起账号";
 "kProposalLabelCellProposalCreator" = "提案发起者";
+"kProposalLabelApprovePeriod" = "操作周期";
+"kProposalLabelReviewPeriod" = "审核周期";
+"kProposalLabel1Days" = "%@天";
+"kProposalLabelNDays" = "%@天";
+"kProposalLabelNoReviewPeriod" = "无";
 "kProposalSubmitTipsSelectCreator" = "请选择提案创建者账号。";
 "kProposalSubmitTipTxOK" = "创建提案成功。";
 "kProposalBtnSubmit" = "提交";
 "kProposalTipsNoAnyProposals" = "没有任何提案信息";
+"kProposalSubmitTipsBlockedApprovedForBlackList" = "危险账号 %@，为了您的账号和资金安全，系统已阻止了该操作。";
 "kProposalSubmitTipsInReview" = "提案处于审核中，不能添加授权。";
 "kProposalSubmitTipsNoPermissionApprove" = "您没有任何权限，没法执行批准操作。";
 "kProposalSubmitTipsYouAlreadyApproved" = "您已经批准，不用重复操作。";
@@ -266,6 +295,8 @@
 /* 资产界面 */
 "kVcAssetPageAsset" = "资产";
 "kVcAssetPageActivity" = "明细";
+"kVcAssetPageHTLC" = "HTLC";
+"kVcAssetPageVestingBalance" = "待解冻金额";
 "kVcAssetTotalValue" = "总资产折合(%@)";
 "kVcAssetBtnTransfer" = "转账";
 "kVcAssetBtnTrade" = "交易";
@@ -285,7 +316,7 @@
 "kVcActivityTypeCancelOrder" = "取消订单";
 "kVcActivityTypeUpdatePosition" = "调整债仓";
 "kVcActivityTypeFillOrder" = "订单成交";
-"kVcActivityTypeCreateAccount" = "创建帐号";
+"kVcActivityTypeCreateAccount" = "创建账号";
 "kVcActivityTypeUpdateAccount" = "更新账户";
 "kVcActivityTypeUpgradeAccount" = "升级账户";
 "kVcActivityTypeCreateProposal" = "创建提案";
@@ -297,7 +328,7 @@
 "kVcActivityDescFillSellOrder" = "%1$@ 以 %2$@ 的价格卖出 %3$@。";
 "kVcActivityDescFillBuyOrder" = "%1$@ 以 %2$@ 的价格买入 %3$@。";
 "kVcActivityDescUpdatePosition" = "%@ 更新保证金 %@，借出 %@。";
-"kVcActivityDescCreateAccount" = "%@ 创建了帐号 %@。";
+"kVcActivityDescCreateAccount" = "%@ 创建了账号 %@。";
 "kVcActivityDescUpdateAccount" = "%@ 更新了账户信息。";
 "kVcActivityDescUpgradeAccount" = "%@ 升级了终身会员。";
 "kVcActivityDescCreateProposal" = "创建提案。";
@@ -319,7 +350,6 @@
 "kVestingTipsStartClaim" = "该笔资金在 %@ 之后方可提取。";
 "kVestingTipsAvailableZero" = "没有可提取数量，请等待。";
 "kVestingTipTxVestingBalanceWithdrawFullOK" = "待解冻金额 %@ 提取成功。";
-"kVestingCellBalanceTitle" = "余额";
 "kVestingCellTotal" = "总数量";
 "kVestingCellVesting" = "已解冻数量";
 "kVestingCellPeriod" = "解冻周期";
@@ -328,6 +358,12 @@
 "kVestingCellPeriodMin" = "%@分";
 "kVestingCellPeriodHour" = "%@小时";
 "kVestingCellPeriodDay" = "%@天";
+"kVestingCellPeriodInstant" = "立即";
+"kVestingCellNameWorkerFunds" = "预算项目薪资";
+"kVestingCellNameWitnessFunds" = "见证人薪资";
+"kVestingCellNameCashbackFunds" = "网络手续费返现";
+"kVestingCellNameMarketFeeSharing" = "市场手续费返现";
+"kVestingCellNameCustomVBO" = "自定义解冻金额";
 
 /* K线界面各种字符串 */
 "kLabelHeaderFeedPrice" = "喂价";
@@ -343,6 +379,9 @@
 "kLabelEkdpt4hour" = "4小时";
 "kLabelEkdpt1day" = "日线";
 "kLabelEkdpt1week" = "周线";
+"kLabelEkdptMoreSuffix" = "◢";
+"kLabelEkdptBtnMore" = "更多◢";
+"kLabelEkdptBtnIndex" = "指标";
 "kLabelNODATA" = "无数据";
 "kLabelKLineDate" = "时间";
 "kLabelKLineOpen" = "开";
@@ -353,11 +392,21 @@
 "kLabelKLineChangePercent" = "涨跌幅";
 "kLabelKLineVol" = "成交量";
 "kLabelKLinePrice" = "价格";
+"kLabelKLineTotalAmount" = "成交额";
+"kLabelKLineAvgPrice" = "成交均价";
 "kLabelBtnDepth" = "深度";
 "kLabelBtnMarketTrades" = "成交";
 "kLabelDepthSideBuy" = "买盘";
 "kLabelDepthSideSell" = "卖盘";
 "kLabelTradeHisNdayAgo" = "%d天前";
+"kKlineIndexCellMain" = "主图";
+"kKlineIndexCellSub" = "副图";
+"kKlineIndexCellHide" = "不显示";
+"kKlineIndexCellBollN" = "布林带长度";
+"kKlineIndexCellBollP" = "布林带多元";
+"kKlineIndexCellMacdS" = "MACD快线长度";
+"kKlineIndexCellMacdL" = "MACD慢线长度";
+"kKlineIndexCellMacdM" = "MACD信号长度";
 
 /* 交易界面各种字符串 */
 "kLabelTitleBuy" = "买入";
@@ -376,6 +425,7 @@
 "kPlaceHolderBuyAmount" = "买入数量";
 "kPlaceHolderSellPrice" = "卖出单价";
 "kPlaceHolderSellAmount" = "卖出数量";
+"kLabelMarketFee" = "手续费 %@";
 "kTailerBtnBid1" = "买一价";
 "kTailerBtnAsk1" = "卖一价";
 "kLableBuyPrice" = "买入价 ";
@@ -410,19 +460,78 @@
 "kVcTransferTipInputSendAmount" = "请输入转账金额";
 "kVcTransferTipInputMemo" = "请输入备注信息（可选）";
 "kVcTransferTipAmountNotEnough" = "数量不足";
-"kVcTransferSubmitTipSelectTo" = "请选择收款帐号。";
+"kVcTransferSubmitTipSelectTo" = "请选择收款账号。";
 "kVcTransferSubmitTipFromToIsSame" = "收款账号和发送账号不能相同。";
 "kVcTransferSubmitTipPleaseInputAmount" = "请输入转账金额";
 "kVcTransferSubmitTipAmountNotEnough" = "数量不足";
-"kVcTransferSubmitTipAccountNoMemoKey" = "帐号没有备注私钥，不支持填写备注信息。";
+"kVcTransferSubmitTipAccountNoMemoKey" = "账号没有备注私钥，不支持填写备注信息。";
 "kVcTransferSubmitTipWalletNoMemoKey" = "没有备注私钥信息，不支持填写备注。";
-"kVcTransferCellFrom" = "来自帐号";
-"kVcTransferCellTo" = "发往帐号";
+"kVcTransferCellFrom" = "来自账号";
+"kVcTransferCellTo" = "发往账号";
 "kVcTransferCellAsset" = "转账资产";
 "kVcTransferCellAmount" =  "转账数量";
 "kVcTransferCellMemo" = "备注信息";
-"kVcTransferTipSelectToAccount" = "请选择收款帐号";
+"kVcTransferTipSelectToAccount" = "请选择收款账号";
 "kVcTransferTipSelectAsset" = "请选择要转账的资产";
+
+/* HTLC合约 */
+"kVcHtlcEntryFromPreimage" = "HTLC合约（原像创建）";
+"kVcHtlcEntryFromHashcode" = "HTLC合约（哈希创建）";
+"kVcHtlcMenuPassiveCreate" = "被动部署合约";
+"kVcHtlcMenuProactivelyCreate" = "主动创建合约";
+"kVcHtlcCellTitlePreimage" = "原像";
+"kVcHtlcCellTitleAdvSwitch" = "高级设置";
+"kVcHtlcCellTitleHashMethod" = "哈希算法";
+"kVcHtlcCellTitleClaimPeriod" = "有效期";
+"kVcHtlcCellTitlePreimageHash" = "原像哈希";
+"kVcHtlcCellTitlePreimageLength" = "原像长度";
+"kVcHtlcCellValueNDayFmt" = "%@天";
+"kVcHtlcCellValueNHourFmt" = "%@小时";
+"kVcHtlcPlaceholderInputPreimage" = "请输入合约的原像";
+"kVcHtlcPlaceholderInputPreimageHash" = "请输入原像的哈希值";
+"kVcHtlcPlaceholderInputPreimageLength" = "请选择原像长度值";
+"kVcHtlcPlaceholderInputHashType" = "请选择哈希算法";
+"kVcHtlcPlaceholderInputExpire" = "请选择合约有效期";
+"kVcHtlcTailerBtnCopy" = "复制";
+"kVcHtlcTailerBtnPaste" = "粘贴";
+"kVcHtlcSubmitBtn01" = "创建";
+"kVcHtlcTipsPreimageCopied" = "原像已复制：%@";
+"kVcHtlcTipsPreimageForm" = "原像格式为20位以上，且必须同时包含大写字母和数字。";
+"kVcHtlcTipsInputPreimageHash" = "请输入原像哈希值。";
+"kVcHtlcTipsInputValidPreimageHash" = "请输入有效的原像哈希值。";
+"kVcHtlcTipsExpireIsTooShort" = "临近合约A有效期，存在安全风险，不可创建合约B。请联系对方延长合约有效期。";
+"kVcHtlcMessageCreateFromPreimage" = "请确认已经复制备份好【原像】信息，丢失原像只能等待合约到期后自动解锁。是否继续创建合约？";
+"kVcHtlcMessageCreateFromHtlcObject" = "建议合约【有效期】务必“小于”对方合约有效期2天以上，否则可能造成资金损失。是否继续创建合约？";
+"kVcHtlcMessageCreateFromHashHavePreimage" = "主动创建合约请备份好【原像】信息，丢失原像只能等待合约到期后自动解锁。是否继续创建合约？";
+"kVcHtlcMessageCreateFromHashNoPreimage" = "被动部署合约请仔细确认对方已经部署好了相同的合约，并仔细核对各种参数。\n\n※ 注意 ※\n1、原像哈希和原像长度必须和对方完全匹配。\n2、建议合约【有效期】务必“小于”对方合约有效期2天以上，否则可能造成资金损失。是否继续创建合约？";
+"kVcHtlcMessageTipsTitle" = "风险提示";
+"kVcHtlcSubmitTipsFullOK" = "创建HTLC成功，可在我的资产界面查看HTLC详细信息。";
+"kVcHtlcSubmitTipsOK" = "创建HTLC成功，但刷新界面失败，可在我的资产界面查看HTLC详细信息。";
+"kVcHtlcNoAnyObjects" = "没有任何HTLC合约信息";
+"kVcHtlcListCellFrom" = "付款账号 ";
+"kVcHtlcListCellTo" = "收款账号 ";
+"kVcHtlcListTransferDir" = "转账类型 ";
+"kVcHtlcListTransferDirPayment" = "付款";
+"kVcHtlcListTransferDirIncome" = "收款";
+"kVcHtlcListTransferAmount" = "转账金额 ";
+"kVcHtlcListPreimageLength" = "原像长度 ";
+"kVcHtlcListHashType" = "哈希类型 ";
+"kVcHtlcListHashTypeValueUnknown" = "未知类型 %@";
+"kVcHtlcListHashValue" = "原像哈希 ";
+"kVcHtlcListBtnExtend" = "延长有效期";
+"kVcHtlcListBtnRedeem" = "赎回合约";
+"kVcHtlcListBtnCreate" = "部署副合约";
+"kVcHtlcListTipsErrorMissParams" = "HTLC相关参数理事会尚未配置，请稍后再试。";
+"kVcHtlcListTipsErrorMaxExpire" = "已经达到最长有效期，不能再延长了。";
+"kVcHtlcListTipsSelectExtendDays" = "请选择延长天数";
+"kVcHtlcListTipsExtendConfirm" = "延长 %@ 天合约的有效期，延长之后不可降低。是否继续？";
+"kVcHtlcListTipsInputValidPreimage" = "请输入有效的原像信息。";
+"kVcHtlcListAskTitleRedeem" = "提取合约";
+"kVcHtlcListAskPlaceholderRedeem" = "请输入合约原像";
+"kVcHtlcListTipsRedeemOK" = "HTLC合约 %@ 提取成功。";
+"kVcHtlcListTipsExtendOK" = "HTLC合约 %@ 延长有效期成功。";
+"kVcHtlcListExtendNDayFmt" = "%@天";
+"kVcHtlcListCopyPreimageHashOK" = "原像哈希已复制：%@";
 
 /* 确认界面 */
 "kVcConfirmTipFrom" = "来自";
@@ -438,20 +547,17 @@
 "kLabelVotingCommittees" = "理事会";
 "kLabelVotingWitnesses" = "见证人";
 "kLabelVotingWorkers" = "预算项目";
-"kLabelVotingActiveCommittees" = "活跃理事会";
-"kLabelVotingStandbyCommittees" = "候选理事会";
-"kLabelVotingActiveWitnesses" = "活跃见证人";
-"kLabelVotingStandbyWitnesses" = "候选见证人";
-"kLabelVotingExpiredWP" = "过期预算项目";
-"kLabelVotingNotExpiredWP" = "进行中预算项目";
-"kLabelVotingActiveWP" = "活跃预算项目";
-"kLabelVotingInactiveWP" = "提案预算项目";
+"kLabelVotingActiveCommittees" = "活跃理事会(%@名)";
+"kLabelVotingStandbyCommittees" = "候选理事会(%@名)";
+"kLabelVotingActiveWitnesses" = "活跃见证人(%@名)";
+"kLabelVotingStandbyWitnesses" = "候选见证人(%@名)";
+"kLabelVotingExpiredWP" = "过期预算项目(%@个)";
+"kLabelVotingNotExpiredWP" = "进行中预算项目(%@个)";
+"kLabelVotingActiveWP" = "活跃预算项目(%@个)";
+"kLabelVotingInactiveWP" = "提案预算项目(%@个)";
 "kLabelVotingTotalBudget" = "预算总额 ";
 "kLabelVotingWPPassVotes" = "通过所需票数 ";
 "kLabelVotingNoBudget" = "没有预算资金";
-"kLabelVotingCommitteesN" = "名";
-"kLabelVotingWitnessesN" = "名";
-"kLabelVotingWorkersN" = "个";
 "kVcVoteBtnReset" = "重置";
 "kVcVoteBtnSubmitProxy" = "提交投票";
 "kVcVoteBtnCancelProxy" = "取消代理";
@@ -471,6 +577,7 @@
 "kVcVoteTipTxOK" = "%@成功，但刷新界面失败，请稍后再试。";
 "kVcVoteCellTotalVotes" = "总票数 ";
 "kVcVoteCellMissed" = "丢块数 ";
+"kVcVoteCellWorkerID" = "编号 ";
 "kVcVoteCellCreator" = "创建者 ";
 "kVcVoteCellDailyPay" = "每日预算 ";
 "kVcVoteCellWPDatePeriod" = "有效期 ";
@@ -480,6 +587,7 @@
 "kVcVoteCellWPBurn" = "销毁";
 
 /* 设置界面 */
+"setting_language" = "语言";
 "setting_currency" = "计价方式";
 "kSettingCurrencyNameCNY" = "人民币";
 "kSettingCurrencyNameUSD" = "美元";
@@ -498,22 +606,25 @@
 "kVcTitleMarginPosition" = "抵押借贷";
 "kVcTitleSetting" = "设置";
 "kVcTitleAbout" = "关于";
-"kVcTitleAccountInfos" = "帐号信息";
-"kVcTitleAccountSearch" = "帐号查询";
+"kVcTitleAccountInfos" = "账号信息";
+"kVcTitleAccountSearch" = "账号查询";
 "kVcTitleRank" = "抵押排行";
 "kVcTitleFeedPrice" = "喂价详情";
 "kVcTitleCustomPairs" = "添加交易对";
-"kVcTitleSelectProxy" = "选择代理帐号";
+"kVcTitleSelectProxy" = "选择代理账号";
 "kVcTitleTheme" = "主题风格";
+"kVcTitleLanguage" = "语言";
 "kVcTitleOrderManagement" = "订单管理";
 "kVcTitleMyBalance" = "我的资产";
 "kVcTitleAgreement" = "用户协议和服务条款";
 "kVcTitleBackupWallet" = "备份钱包";
-"kVcTitleSelectToAccount" = "搜索目标帐号";
+"kVcTitleSelectToAccount" = "搜索目标账号";
 "kVcTitleWhatIsFeedPrice" = "什么是喂价？";
 "kVcTitleWhatIsTradePassowrd" = "什么是交易密码？";
 "kVcTitleWhatIsActivePrivateKey" = "什么是资金私钥？";
 "kVcTitleWhatIsGatewayAssets" = "什么是网关资产？";
+"kVcTitleWhatIsGateway" = "什么是网关？";
+"kVcTitleWhatIsRefcode" = "什么是推荐码？";
 "kVcTitleFAQ" = "常见问题";
 "kVcTitleVoting" = "投票";
 "kVcTitleMyProposal" = "提案管理";
@@ -524,11 +635,15 @@
 "kVcTitleProposalAddApprove" = "授权批准";
 "kVcTitleProposalRemoveApprove" = "授权撤销";
 "kVcTitleDepositWithdraw" = "充币提币";
+"kVcTitleDepositAdvFunction" = "高级功能";
 "kVcTitleDeposit" = "%@充币";
 "kVcTitleWithdraw" = "%@提币";
+"kVcTitleKlineIndexSetting" = "K线指标设置";
+"kVcTitleCreateHTLC" = "创建HTLC合约";
+"kVcTitleCreateSubHTLC" = "部署副合约";
 
 /* 钱包管理 */
-"kWalletUnlockFailedUnknowMode" = "解锁失败，未知的帐号模式：%@。";
+"kWalletUnlockFailedUnknowMode" = "解锁失败，未知的账号模式：%@。";
 "kWalletInvalidWalletPassword" = "钱包密码无效。";
 "kWalletInvalidWalletFile" = "钱包文件无效。";
 "kWalletIncorrectWalletPassword" = "钱包密码不正确。";
@@ -563,7 +678,7 @@
 "kOpType_fill_order" = "订单成交";
 "kOpType_account_create" = "创建账号";
 "kOpType_account_update" = "更新账号";
-"kOpType_account_whitelist" = "更新白名单";
+"kOpType_account_whitelist" = "更新黑白名单";
 "kOpType_account_upgrade" = "升级账号";
 "kOpType_account_transfer" = "转移账号";
 "kOpType_asset_create" = "资产创建";
@@ -600,6 +715,17 @@
 "kOpType_transfer_from_blind" = "从隐私账户转出";
 "kOpType_asset_settle_cancel" = "取消清算";
 "kOpType_asset_claim_fees" = "提取资产手续费";
+"kOpType_fba_distribute" = "FBA分发";
+"kOpType_bid_collateral" = "黑天鹅竞价";
+"kOpType_execute_bid" = "竞价成功";
+"kOpType_asset_claim_pool" = "提取资产手续费池";
+"kOpType_asset_update_issuer" = "更新资产发行账号";
+"kOpType_htlc_create" = "创建HTLC";
+"kOpType_htlc_redeem" = "赎回HTLC";
+"kOpType_htlc_redeemed" = "赎回HTLC成功";
+"kOpType_htlc_extend" = "更新HTLC";
+"kOpType_htlc_refund" = "HTLC退款";
+"kOpType_unknown_op" = "未知操作";
 
 /* 交易OP详细描述 */
 "kOpDesc_transfer" = "%@ 转账 %@ 到 %@。";
@@ -609,25 +735,29 @@
 "kOpDesc_call_order_update" = "%@ 更新保证金 %@，借出 %@。";
 "kOpDesc_fill_order_sell" = "%@ 以 %@ 的价格卖出 %@。";
 "kOpDesc_fill_order_buy" = "%@ 以 %@ 的价格买入 %@。";
-"kOpDesc_account_create" = "%@ 创建帐号 %@。";
+"kOpDesc_account_create" = "%@ 创建账号 %@。";
 "kOpDesc_account_update" = "%@ 更新账户信息。";
-"kOpDesc_account_whitelist" = "更新白名单。";
+"kOpDesc_account_whitelist_white" = "%@ 添加 %@ 到白名单列表。";
+"kOpDesc_account_whitelist_black" = "%@ 添加 %@ 到黑名单列表。";
+"kOpDesc_account_whitelist_both" = "%@ 添加 %@ 到白名单和黑名单列表。";
+"kOpDesc_account_whitelist_none" = "%@ 从黑白名单列表移除 %@。";
 "kOpDesc_account_upgrade" = "%@ 升级账户。";
 "kOpDesc_account_upgrade_member" = "%@ 升级终身会员。";
 "kOpDesc_account_transfer" = "转移账号。";
 "kOpDesc_asset_create" = "%@ 创建资产 %@。";
-"kOpDesc_asset_update" = "更新资产。";
+"kOpDesc_asset_update" = "更新资产 %@。";
 "kOpDesc_asset_update_bitasset" = "更新智能币。";
-"kOpDesc_asset_update_feed_producers" = "更新喂价者。";
+"kOpDesc_asset_update_feed_producers" = "%@ 资产更新发布喂价的账号信息。";
 "kOpDesc_asset_issue" = "资产发行。";
-"kOpDesc_asset_reserve" = "资产销毁。";
+"kOpDesc_asset_reserve" = "%@ 销毁 %@。";
 "kOpDesc_asset_fund_fee_pool" = "注资手续费池。";
-"kOpDesc_asset_settle" = "资产强清。";
+"kOpDesc_asset_settle" = "%@ 强制清算 %@。";
 "kOpDesc_asset_global_settle" = "资产全局清算。";
 "kOpDesc_asset_publish_feed" = "发布喂价。";
 "kOpDesc_witness_create" = "创建见证人。";
 "kOpDesc_witness_update" = "更新见证人。";
-"kOpDesc_proposal_create" = "创建提案。";
+"kOpDesc_proposal_create_with_id" = "%@ 创建提案。#%@";
+"kOpDesc_proposal_create" = "%@ 创建提案。";
 "kOpDesc_proposal_update" = "%@ 更新提案。#%@";
 "kOpDesc_proposal_delete" = "删除提案。";
 "kOpDesc_withdraw_permission_create" = "创建授权提款。";
@@ -648,18 +778,44 @@
 "kOpDesc_blind_transfer" = "隐私转账。";
 "kOpDesc_transfer_from_blind" = "从隐私账户转出。";
 "kOpDesc_asset_settle_cancel" = "取消清算。";
-"kOpDesc_asset_claim_fees" = "提取资产手续费。";
+"kOpDesc_asset_claim_fees" = "%@ 提取 %@ 资产手续费。";
+"kOpDesc_fba_distribute" = "FBA分发。";
+"kOpDesc_bid_collateral" = "黑天鹅竞价。";
+"kOpDesc_execute_bid" = "竞价成功。";
+"kOpDesc_asset_claim_pool" = "提取手续费池资产。";
+"kOpDesc_asset_update_issuer" = "%@ 更新 %@ 资产的所有者账号为 %@。";
+"kOpDesc_htlc_create_with_id" = "%@ 准备转账 %@ 到 %@。#%@";
+"kOpDesc_htlc_create" = "%@ 准备转账 %@ 到 %@。";
+"kOpDesc_htlc_redeem" = "%@ 使用原像 %@ 赎回HTLC。#%@";
+"kOpDesc_htlc_redeemed" = "%@ 赎回HTLC成功，%@ 转入账号 %@。#%@";
+"kOpDesc_htlc_extend" = "%@ 延长HTLC有效期 %@ 秒。#%@";
+"kOpDesc_htlc_refund" = "HTLC过期，资产自动退回到账号 %@。#%@";
+"kOpDesc_unknown_op" = "未知的操作 #%@。";
+
+/* 交易OP细化 */
+"kOpDetailFlagDangerous" = "危险操作";
+"kOpDetailPermissionOwner" = "所有者权限";
+"kOpDetailPermissionActive" = "资金权限";
+"kOpDetailPermissionMemo" = "备注权限";
+"kOpDetailSubTitleVoteTargeter" = "投票对象";
+"kOpDetailSubTitleOperate" = "操作";
+"kOpDetailSubTitleNewWeightOrThreshold" = "新阈值/新权重";
+"kOpDetailSubTitleChangeValue" = "变化量";
+"kOpDetailSubOpAdd" = "添加";
+"kOpDetailSubOpDelete" = "删除";
+"kOpDetailSubPrefixThreshold" = "阈值";
+"kOpDetailSubPrefixCommittee" = "理事会";
+"kOpDetailSubPrefixWitness" = "见证人";
+"kOpDetailSubPrefixProxy" = "代理人";
 
 /* 通用字符串 */
+"kLangKeyZhSimple" = "简体中文";
+"kLangKeyEn" = "English / 英文";
+"kLangKeyJa" = "日本語 / 日文";
 "skip" = "跳过";
-"kAppName" = "BTS++";
-"kAccount" = "帐号";
-"kAboutMainDesc" ="BTS++是基于比特股石墨烯技术，从产品体验出发，采用原生技术开发的一款可媲美一流中心化交易所的去中心化交易所（DEX）产品。";
-"kAboutContactUs" = "联系我们";
-"kAboutWechat" = "微信：%@";
-"kAboutEmail" = "邮箱：%@";
-"kAboutTelegram" = "电报：%@";
-"kAboutWebsite" = "官网：%@";
+"kAppName" = "比特股";
+"kAccount" = "账号";
+"kAboutMainDesc" ="\n比特股移动端钱包是基于石墨烯技术，从产品体验出发，采用原生技术开发的一款可媲美一流中心化交易所的去中心化交易所（DEX）产品。\n\n联系我们\n微信：bts-pp\n邮箱：contact@btsplusplus.com\n电报：https://t.me/btsplusplus\n官网：https://btspp.io\n";
 "kAboutChannelAppStore" = "(商店版 & 渠道 %@)";
 "kAboutChannelWebsite" = "(官网版 & 渠道 %@)";
 "kAboutDebugVersion" = "(调试版)";
@@ -672,15 +828,15 @@
 "kNormalCellBtnCreateWallet" = "创建钱包";
 "kTipsInitialize" = "初始化中…";
 "kTipsBeRequesting" = "请求中…";
-"kTipsTxFeeNotEnough" = "手续费不足，请确保帐号有足额的 BTS/CNY/USD 用于支付网络手续费。";
+"kTipsTxFeeNotEnough" = "手续费不足，请确保账号有足额的 BTS/CNY/USD 用于支付网络手续费。";
 "kTipsTxRequestFailed" = "请求失败，请稍后再试。";
-"kSearchPlaceholderAccount" = "请输入有效的 Bitshares 帐号名";
+"kSearchPlaceholderAccount" = "请输入有效的 Bitshares 账号名";
 "kSearchPlaceholderAsset" = "点击搜索新资产";
 "kSearchTipsMyFavAccount" = "我的关注(%@人)";
 "kSearchTipsMyCustomPairs" = "我的交易对(%@个)";
 "kSearchTipsMaxCustomParisNumber" = "最多只能自定义 %@ 个交易对。";
 "kSearchTipsForbidden" = "不可更改";
-"kMsgUsenameCannotBeNull" = "帐号不能为空，请重新输入。";
+"kMsgUsenameCannotBeNull" = "账号不能为空，请重新输入。";
 "kMsgPasswordCannotBeNull" = "密码不能为空，请重新输入。";
 "kTipsAddFavDelete" = "删除自选成功";
 "kTipsAddFavSuccess" = "添加自选成功";
@@ -704,26 +860,56 @@
 "search_result" = "搜索结果";
 "other" = "其他";
 "kBtnClose" = "关闭";
-"upgrade now" = "立即升级";
-"remind me latter" = "稍后提醒";
+"kUpgradeNow" = "立即升级";
+"kRemindMeLatter" = "稍后提醒";
 "tip_network_error" = "网络异常，请稍后再试。";
+"kAppFirstInitNetworkFailed" = "APP网络初始化异常了，请按照以下步骤处理：\n1、如果是首次启动，请允许应用使用无线数据。\n2、其他情况请检查您的设备网络是否正常。";
+"kAppBtnReInit" = "重试";
 "Cancel" = "取消";
 "faq" = "常见问题";
 "tip_click_to_login" = "点此登录";
-"account management" = "账号管理";
+"kAccountManagement" = "账号管理";
 "tip_member_expired" = "会员：已过期";
 "tip_member_timeleft_fmt" = "会员：%@天后到期";
-"unlockTipsPleaseInputAccountPassword" = "请输入帐号密码";
+"unlockTipsPleaseInputAccountPassword" = "请输入账号密码";
 "unlockTipsPleaseInputTradePassword" = "请输入交易密码";
 "unlockTipsPleaseInputWalletPassword" = "请输入钱包密码";
-"unlockTipsUnlockAccount" = "解锁帐号";
+"unlockTipsUnlockAccount" = "解锁账号";
 "unlockTipsUnlockWallet" = "解锁钱包";
 "unlockBtnUnlock" = "解锁";
 
 /* 部分石墨烯错误信息 */
 "kGPErrorAccountNotExist" = "账号不存在。";
 "kGPErrorInsufficientBalance" = "手续费不足。";
+"kGPErrorRedeemInvalidPreimage" = "原像不正确。";
 
 /* 特殊用途字符串KEY */
 "serverWssLangKey" = "cn";
 "appDepositWithdrawDefaultGateway" = "GDEX";
+
+/* Android专有字符串 */
+"action_settings" = "Settings";
+"title_home" = "Home";
+"title_dashboard" = "Dashboard";
+"title_notifications" = "Notifications";
+"webserverUploadPage" = "upload";
+"webserverDownloadPage" = "download";
+"nameSaoyisao" = "扫一扫";
+"launchTipVersionKey" = "newVersionInfo";
+"launchTipDefaultNewVersion" = "发现新版本 v%@，快前往更新吧。";
+"kKlineIndexSelectMainIndex" = "请选择主图显示指标";
+"kKlineIndexSelectSubIndex" = "请选择副图显示指标。";
+"serviceMainPageGame" = "小游戏";
+"registerLoginPageReceiveFiles0" = "收到的文件(0个)";
+"registerLoginPagePleaseInputWalletPws" = "请输入钱包文件密码";
+"registerLoginPageInvalidRequesting" = "无效请求";
+"registerLoginPageUploadSuccessPleaseContinueForPhone" = "上传成功，请在手机上继续完成导入操作。";
+"registerLoginPageServerInternalError" = "服务器内部错误";
+"registerLoginPageTipForDeleteFileForThisPhone" = "从该设备删除文件%@，确定吗？";
+"registerLoginPageClickWrong" = "点错了";
+"registerLoginWebServerErrorIp" = "获取手机地址异常，请稍后再试。";
+"registerLoginWebServerErrorInit" = "初始化失败，请重启APP再试。";
+"registerLoginTipBackupError" = "导出钱包失败，请稍后再试。";
+"myAssetsPageUnknowOperationContent" = "未知操作内容";
+"kWalletMemuTipsPleaseSelectCellAction" = "请选择要执行的操作";
+"kWalletMenuTipsPleaseSelectImportType" = "请选择要导入的账号类型";

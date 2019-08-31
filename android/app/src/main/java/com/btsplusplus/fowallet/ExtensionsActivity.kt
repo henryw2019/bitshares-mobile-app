@@ -84,9 +84,9 @@ fun android.app.Activity.alerShowMessageConfirm(title: String?, message: String)
 
 fun android.app.Activity.viewUserLimitOrders(account_id: String, tradingPair: TradingPair?) {
     //  [统计]
-    fabricLogCustom("event_view_userlimitorders", jsonObjectfromKVS("account", account_id))
+    btsppLogCustom("event_view_userlimitorders", jsonObjectfromKVS("account", account_id))
 
-    val mask = ViewMesk(R.string.nameRequesting.xmlstring(this), this)
+    val mask = ViewMask(R.string.kTipsBeRequesting.xmlstring(this), this)
     mask.show()
     //  1、查账号数据
     val p1 = ChainObjectManager.sharedChainObjectManager().queryFullAccountInfo(account_id)
@@ -140,28 +140,45 @@ fun android.app.Activity.viewUserLimitOrders(account_id: String, tradingPair: Tr
         }
     }.catch {
         mask.dismiss()
-        showToast(resources.getString(R.string.nameNetworkException))
+        showToast(resources.getString(R.string.tip_network_error))
     }
 }
 
 fun android.app.Activity.viewUserAssets(account_name_or_id: String) {
     //  [统计]
-    fabricLogCustom("event_view_userassets", jsonObjectfromKVS("account", account_name_or_id))
+    btsppLogCustom("event_view_userassets", jsonObjectfromKVS("account", account_name_or_id))
 
-    val mask = ViewMesk(R.string.nameRequesting.xmlstring(this), this)
+    val mask = ViewMask(R.string.kTipsBeRequesting.xmlstring(this), this)
     mask.show()
-    ChainObjectManager.sharedChainObjectManager().queryFullAccountInfo(account_name_or_id).then {
+
+    val chainMgr = ChainObjectManager.sharedChainObjectManager()
+    chainMgr.queryFullAccountInfo(account_name_or_id).then {
         val full_account_data = it as JSONObject
         val userAssetDetailInfos = OrgUtils.calcUserAssetDetailInfos(full_account_data)
-        return@then ChainObjectManager.sharedChainObjectManager().queryAllAssetsInfo(userAssetDetailInfos.getJSONObject("validBalancesHash").keys().toJSONArray()).then {
-            mask.dismiss()
-            goTo(ActivityMyAssets::class.java, true, args = jsonArrayfrom(userAssetDetailInfos, full_account_data))
-            return@then null
+        val debtValuesHashKeys = userAssetDetailInfos.getJSONObject("debtValuesHash").keys().toJSONArray()
+        var debt_asset_ids = Array(debtValuesHashKeys.length()) { return@Array "" }
+        var i = 0
+        debtValuesHashKeys.forEach<String> {
+            debt_asset_ids.set(i, it!!)
+            i++
+        }
+        val args = userAssetDetailInfos.getJSONObject("validBalancesHash").keys().toJSONArray()
+        return@then chainMgr.queryAllAssetsInfo(args).then {
+            val debt_bitasset_data_id_list = debt_asset_ids.map {
+                val debt_asset_id = it
+                return@map chainMgr.getChainObjectByID(debt_asset_id).getString("bitasset_data_id")
+            }
+            return@then chainMgr.queryAllGrapheneObjects(debt_bitasset_data_id_list.toJsonArray()).then {
+                mask.dismiss()
+                goTo(ActivityMyAssets::class.java, true, args = jsonArrayfrom(userAssetDetailInfos, full_account_data))
+                return@then null
+            }
         }
     }.catch {
         mask.dismiss()
-        showToast(resources.getString(R.string.nameNetworkException))
+        showToast(resources.getString(R.string.tip_network_error))
     }
+
 }
 
 fun android.app.Activity.runOnMainUI(body: () -> Unit) {
@@ -213,12 +230,18 @@ fun android.app.Activity.showGrapheneError(error: Any?) {
                     showToast(resources.getString(R.string.kGPErrorInsufficientBalance))
                     return
                 }
+                //  "Preimage size mismatch." or ""Provided preimage does not generate correct hash."
+                val lowermsg = msg.toLowerCase()
+                if (lowermsg.indexOf("preimage size") > 0 || lowermsg.indexOf("provided preimage") > 0) {
+                    showToast(resources.getString(R.string.kGPErrorRedeemInvalidPreimage))
+                    return
+                }
             }
         } catch (e: Exception) {
         }
     }
     //  默认错误信息
-    showToast(resources.getString(R.string.nameNetworkException))
+    showToast(resources.getString(R.string.tip_network_error))
 }
 
 fun Fragment.showGrapheneError(error: Any?) {
@@ -233,18 +256,18 @@ fun android.app.Activity.showFaucetRegisterError(response: JSONObject?) {
         val code = response.getInt("status")
         if (code != 0) {
             when (code) {
-                10 -> showToast(resources.getString(R.string.registerLoginPageInvalidParams))
-                20 -> showToast(resources.getString(R.string.registerLoginPageInvalidAccountFormat))
-                30 -> showToast(resources.getString(R.string.registerLoginPageAccountExisted))
-                40 -> showToast(resources.getString(R.string.registerLoginPageUnknownErrorAndBroadcastFailed))
-                41 -> showToast(resources.getString(R.string.registerLoginPageTooManyAccountForThisEquipment))
-                42 -> showToast(resources.getString(R.string.registerLoginPageRegisterFrequently))
-                999 -> showToast(resources.getString(R.string.registerLoginPageServerMaintenance))
+                10 -> showToast(resources.getString(R.string.kLoginFaucetTipsInvalidArguments))
+                20 -> showToast(resources.getString(R.string.kLoginFaucetTipsInvalidAccountFmt))
+                30 -> showToast(resources.getString(R.string.kLoginFaucetTipsAccountAlreadyExist))
+                40 -> showToast(resources.getString(R.string.kLoginFaucetTipsUnknownError))
+                41 -> showToast(resources.getString(R.string.kLoginFaucetTipsDeviceRegTooMany))
+                42 -> showToast(resources.getString(R.string.kLoginFaucetTipsDeviceRegTooFast))
+                999 -> showToast(resources.getString(R.string.kLoginFaucetTipsServerMaintence))
                 else -> showToast(response.getString("msg"))
             }
         }
     } else {
-        showToast(resources.getString(R.string.nameNetworkException))
+        showToast(resources.getString(R.string.tip_network_error))
     }
 }
 
@@ -252,24 +275,26 @@ fun android.app.Activity.showFaucetRegisterError(response: JSONObject?) {
 /**
  *  (private) 创建提案请求
  */
-fun android.app.Activity.onExecuteCreateProposalCore(opcode: EBitsharesOperations, opdata: JSONObject, opaccount: JSONObject, fee_paying_account: JSONObject, success_callback: (() -> Unit)?) {
+fun android.app.Activity.onExecuteCreateProposalCore(opcode: EBitsharesOperations, opdata: JSONObject, opaccount: JSONObject, proposal_create_args: JSONObject, success_callback: (() -> Unit)?) {
+    val fee_paying_account = proposal_create_args.getJSONObject("kFeePayingAccount")
     val fee_paying_account_id = fee_paying_account.getString("id")
+
     //  请求
-    val mask = ViewMesk(R.string.nameRequesting.xmlstring(this), this)
+    val mask = ViewMask(R.string.kTipsBeRequesting.xmlstring(this), this)
     mask.show()
-    BitsharesClientManager.sharedBitsharesClientManager().proposalCreate(opcode, opdata, opaccount, fee_paying_account_id).then {
+    BitsharesClientManager.sharedBitsharesClientManager().proposalCreate(opcode, opdata, opaccount, proposal_create_args).then {
         mask.dismiss()
         if (success_callback != null) {
             success_callback()
         } else {
             showToast(R.string.kProposalSubmitTipTxOK.xmlstring(this))
         }
-        fabricLogCustom("txProposalCreateOK", jsonObjectfromKVS("opcode", opcode.value, "account", fee_paying_account_id))
+        btsppLogCustom("txProposalCreateOK", jsonObjectfromKVS("opcode", opcode.value, "account", fee_paying_account_id))
         return@then null
     }.catch { err ->
         mask.dismiss()
         showGrapheneError(err)
-        fabricLogCustom("txProposalCreateFailed", jsonObjectfromKVS("opcode", opcode.value, "account", fee_paying_account_id))
+        btsppLogCustom("txProposalCreateFailed", jsonObjectfromKVS("opcode", opcode.value, "account", fee_paying_account_id))
     }
 }
 
@@ -278,7 +303,7 @@ fun android.app.Activity.onExecuteCreateProposalCore(opcode: EBitsharesOperation
  */
 fun android.app.Activity.askForCreateProposal(opcode: EBitsharesOperations, using_owner_authority: Boolean, invoke_proposal_callback: Boolean,
                                               opdata: JSONObject, opaccount: JSONObject,
-                                              body: ((isProposal: Boolean, fee_paying_account: JSONObject) -> Unit)?, success_callback: (() -> Unit)?) {
+                                              body: ((isProposal: Boolean, proposal_create_args: JSONObject) -> Unit)?, success_callback: (() -> Unit)?) {
     val account_name = opaccount.getString("name")
     var message: String
     if (using_owner_authority) {
@@ -286,19 +311,21 @@ fun android.app.Activity.askForCreateProposal(opcode: EBitsharesOperations, usin
     } else {
         message = String.format(R.string.kProposalTipsAskMissingActive.xmlstring(this), account_name)
     }
-    alerShowMessageConfirm(resources.getString(R.string.registerLoginPageWarmTip), message).then {
-        if (it as Boolean) {
+    alerShowMessageConfirm(resources.getString(R.string.kWarmTips), message).then {
+        if (it != null && it as Boolean) {
             //  转到提案确认界面
             val result_promise = Promise()
-            val args = jsonObjectfromKVS("opcode", opcode, "opdata", opdata, "result_promise", result_promise)
+            val args = jsonObjectfromKVS("opcode", opcode, "opaccount", opaccount, "opdata", opdata, "result_promise", result_promise)
             goTo(ActivityCreateProposal::class.java, true, args = args)
             result_promise.then { result ->
-                val selected_fee_paying_account = result as? JSONObject
-                if (selected_fee_paying_account != null) {
-                    if (invoke_proposal_callback) {
-                        body!!(true, selected_fee_paying_account)
-                    } else {
-                        onExecuteCreateProposalCore(opcode, opdata, opaccount, selected_fee_paying_account, success_callback)
+                if (result != null) {
+                    val proposal_create_args = result as? JSONObject
+                    if (proposal_create_args != null) {
+                        if (invoke_proposal_callback) {
+                            body!!(true, proposal_create_args)
+                        } else {
+                            onExecuteCreateProposalCore(opcode, opdata, opaccount, proposal_create_args, success_callback)
+                        }
                     }
                 }
             }
@@ -330,20 +357,24 @@ fun android.app.Activity.GuardProposalOrNormalTransaction(opcode: EBitsharesOper
 fun android.app.Activity.guardWalletUnlocked(checkActivePermission: Boolean, body: (unlocked: Boolean) -> Unit) {
     val walletMgr = WalletManager.sharedWalletManager()
     if (walletMgr.isLocked()) {
-        var title = if (walletMgr.getWalletMode() == AppCacheManager.EWalletMode.kwmPasswordOnlyMode.value) R.string.unlockTipsUnlockAccount.xmlstring(this) else R.string.unlockTipsUnlockWallet.xmlstring(this)
+        val title = if (walletMgr.getWalletMode() == AppCacheManager.EWalletMode.kwmPasswordOnlyMode.value) R.string.unlockTipsUnlockAccount.xmlstring(this) else R.string.unlockTipsUnlockWallet.xmlstring(this)
         val placeholder = when (walletMgr.getWalletMode()) {
-            AppCacheManager.EWalletMode.kwmPasswordOnlyMode.value -> resources.getString(R.string.registerLoginPagePleaseInputAccountPwd)
-            AppCacheManager.EWalletMode.kwmPasswordWithWallet.value -> resources.getString(R.string.registerLoginPagePleaseInputTradePws)
-            AppCacheManager.EWalletMode.kwmPrivateKeyWithWallet.value -> resources.getString(R.string.registerLoginPagePleaseInputTradePws)
+            //  账号密码
+            AppCacheManager.EWalletMode.kwmPasswordOnlyMode.value -> resources.getString(R.string.unlockTipsPleaseInputAccountPassword)
+            //  交易密码
+            AppCacheManager.EWalletMode.kwmPasswordWithWallet.value -> resources.getString(R.string.kLoginTipsPlaceholderTradePassword)
+            AppCacheManager.EWalletMode.kwmPrivateKeyWithWallet.value -> resources.getString(R.string.unlockTipsPleaseInputTradePassword)
+            AppCacheManager.EWalletMode.kwmBrainKeyWithWallet.value -> resources.getString(R.string.unlockTipsPleaseInputTradePassword)
+            //  钱包密码
             AppCacheManager.EWalletMode.kwmFullWalletMode.value -> resources.getString(R.string.registerLoginPagePleaseInputWalletPws)
-            else -> resources.getString(R.string.registerLoginPagePleaseInputPwd)
+            else -> resources.getString(R.string.kLoginImportTipsPleaseInputPassword)
         }
         UtilsAlert.showInputBox(this, title, placeholder, resources.getString(R.string.unlockBtnUnlock)).then {
             val password = it as? String
             if (password == null) {
                 body(false)
             } else if (password == "") {
-                showToast(resources.getString(R.string.registerLoginPagePasswordIsEmpty))
+                showToast(resources.getString(R.string.kMsgPasswordCannotBeNull))
             } else {
                 val unlockInfos = WalletManager.sharedWalletManager().unLock(password, this)
                 var unlockSuccess = unlockInfos.getBoolean("unlockSuccess")
@@ -378,6 +409,24 @@ fun android.app.Activity.guardWalletExist(body: () -> Unit) {
         body()
     } else {
         goTo(ActivityLogin::class.java, true)
+    }
+}
+
+/**
+ * 获取用户的 full_account_data 数据，并且获取余额里所有 asset 的资产详细信息。
+ */
+fun android.app.Activity.get_full_account_data_and_asset_hash(account_name_or_id: String): Promise {
+    //  TODO:后期移动到 ChainObjectManager里
+    return ChainObjectManager.sharedChainObjectManager().queryFullAccountInfo(account_name_or_id).then {
+        val full_account_data = it as JSONObject
+        val list = JSONArray()
+        for (balance in full_account_data.getJSONArray("balances")) {
+            list.put(balance!!.getString("asset_type"))
+        }
+        return@then ChainObjectManager.sharedChainObjectManager().queryAllAssetsInfo(list).then {
+            //  (void)asset_hash 省略，缓存到 ChainObjectManager 即可。
+            return@then full_account_data
+        }
     }
 }
 
@@ -420,7 +469,9 @@ fun android.app.Activity.goTo(cls: Class<*>, transition_animation: Boolean = fal
     }
 
     //  设置参数
-    TempManager.sharedTempManager().set_args(args)
+    if (args != null) {
+        intent.putExtra(BTSPP_START_ACTIVITY_PARAM_ID, ParametersManager.sharedParametersManager().genParams(args))
+    }
 
     //  是否获取结果
     if (request_code > 0) {
@@ -455,7 +506,7 @@ fun AppCompatActivity.setAutoLayoutContentView(layoutResID: Int, navigationBarCo
     setContentView(layoutResID)
     adjustWindowSizeForNavigationBar(navigationBarColor)
     //  [统计]
-    fabricLogCustom("setAutoLayoutContentView", jsonObjectfromKVS("activity", this::class.java.name))
+    btsppLogCustom("setAutoLayoutContentView", jsonObjectfromKVS("activity", this::class.java.name))
 }
 
 /**

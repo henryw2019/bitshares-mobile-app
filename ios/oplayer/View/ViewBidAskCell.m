@@ -173,14 +173,9 @@
         }
         else
         {
-            //  TODO:fowallet 精度问题
             _lbID.text = [NSString stringWithFormat:@"%@", @(_row_id)];
-            
-            NSString* num_formatter = [NSString stringWithFormat:@"%%0.%@f", @(self.numPrecision)];
-            _lbNum.text = [NSString stringWithFormat:num_formatter, [[_item objectForKey:@"quote"] doubleValue]];
-            
-            NSString* price_formatter = [NSString stringWithFormat:@"%%0.%@f", @(self.displayPrecision)];
-            _lbPrice.text = [NSString stringWithFormat:price_formatter, [[_item objectForKey:@"price"] doubleValue]];
+            _lbNum.text = [OrgUtils formatFloatValue:[[_item objectForKey:@"quote"] doubleValue] precision:self.numPrecision];
+            _lbPrice.text = [OrgUtils formatFloatValue:[[_item objectForKey:@"price"] doubleValue] precision:self.displayPrecision];
         }
     }
     //  _item:
@@ -190,7 +185,7 @@
     CGFloat xOffset = self.textLabel.frame.origin.x;
     
     //  设置 frame 位置
-    CGFloat spaceID2Num = 22.0f;    //  REMARK：ID编号和挂单数量的间距
+    CGFloat spaceID2Num = 26.0f;    //  REMARK：ID编号和挂单数量的间距
     
     if (_isbuy)
     {
@@ -205,7 +200,6 @@
     }
     else
     {
-        //  TODO:fowallet 爆仓单颜色
         _lbID.frame = CGRectMake(xOffset, 0, fWidth - xOffset * 2, self.bounds.size.height);
         _lbID.textAlignment = NSTextAlignmentRight;
         
@@ -217,17 +211,24 @@
     }
     
     //  设置颜色
+    ThemeManager* theme = [ThemeManager sharedThemeManager];
     if (_titleCell){
-        _lbID.textColor = [ThemeManager sharedThemeManager].textColorGray;
-        _lbNum.textColor = [ThemeManager sharedThemeManager].textColorGray;
-        _lbPrice.textColor = [ThemeManager sharedThemeManager].textColorGray;
+        _lbID.textColor = theme.textColorGray;
+        _lbNum.textColor = theme.textColorGray;
+        _lbPrice.textColor = theme.textColorGray;
     }else{
-        _lbID.textColor = [ThemeManager sharedThemeManager].textColorNormal;
-        _lbNum.textColor = [ThemeManager sharedThemeManager].textColorNormal;
-        if (_isbuy){
-            _lbPrice.textColor = [ThemeManager sharedThemeManager].buyColor;
+        if ([[_item objectForKey:@"iscall"] boolValue]){
+            _lbID.textColor = theme.callOrderColor;
+            _lbNum.textColor = theme.callOrderColor;
+            _lbPrice.textColor = theme.callOrderColor;
         }else{
-            _lbPrice.textColor = [ThemeManager sharedThemeManager].sellColor;
+            _lbID.textColor = theme.textColorNormal;
+            _lbNum.textColor = theme.textColorNormal;
+            if (_isbuy){
+                _lbPrice.textColor = theme.buyColor;
+            }else{
+                _lbPrice.textColor = theme.sellColor;
+            }
         }
     }
 }

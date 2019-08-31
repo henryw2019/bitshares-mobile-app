@@ -63,12 +63,12 @@ class ViewBidAsk : FrameLayout {
         table_row.layoutParams = table_row_params
         table_row.gravity = Gravity.CENTER_VERTICAL
 
-        val tv1 = ViewUtils.createTextViewForOrderBook(ctx, ctx.resources.getString(R.string.nameBuy), Gravity.LEFT, R.color.theme01_textColorGray, 2f, layout_view_height)
-        val tv2 = ViewUtils.createTextViewForOrderBook(ctx, ctx.resources.getString(R.string.nameNumber), Gravity.LEFT, R.color.theme01_textColorGray, 6f, layout_view_height)
-        val tv3 = ViewUtils.createTextViewForOrderBook(ctx, ctx.resources.getString(R.string.namePrice), Gravity.RIGHT, R.color.theme01_textColorGray, 6f, layout_view_height)
-        val tv4 = ViewUtils.createTextViewForOrderBook(ctx, ctx.resources.getString(R.string.namePrice), Gravity.LEFT, R.color.theme01_textColorGray, 6f, layout_view_height)
-        val tv5 = ViewUtils.createTextViewForOrderBook(ctx, ctx.resources.getString(R.string.nameNumber), Gravity.RIGHT, R.color.theme01_textColorGray, 6f, layout_view_height)
-        val tv6 = ViewUtils.createTextViewForOrderBook(ctx, ctx.resources.getString(R.string.nameSell), Gravity.RIGHT, R.color.theme01_textColorGray, 2f, layout_view_height)
+        val tv1 = ViewUtils.createTextViewForOrderBook(ctx, ctx.resources.getString(R.string.kLableBidBuy), Gravity.LEFT, R.color.theme01_textColorGray, 2f, layout_view_height)
+        val tv2 = ViewUtils.createTextViewForOrderBook(ctx, ctx.resources.getString(R.string.kLableBidAmount), Gravity.LEFT, R.color.theme01_textColorGray, 6f, layout_view_height)
+        val tv3 = ViewUtils.createTextViewForOrderBook(ctx, ctx.resources.getString(R.string.kLableBidPrice), Gravity.RIGHT, R.color.theme01_textColorGray, 6f, layout_view_height)
+        val tv4 = ViewUtils.createTextViewForOrderBook(ctx, ctx.resources.getString(R.string.kLableBidPrice), Gravity.LEFT, R.color.theme01_textColorGray, 6f, layout_view_height)
+        val tv5 = ViewUtils.createTextViewForOrderBook(ctx, ctx.resources.getString(R.string.kLableBidAmount), Gravity.RIGHT, R.color.theme01_textColorGray, 6f, layout_view_height)
+        val tv6 = ViewUtils.createTextViewForOrderBook(ctx, ctx.resources.getString(R.string.kLableAskSell), Gravity.RIGHT, R.color.theme01_textColorGray, 2f, layout_view_height)
 
         tv3.setPadding(0, 0, Utils.toDp(5f, res), 0)
         tv4.setPadding(Utils.toDp(5f, res), 0, 0, 0)
@@ -195,31 +195,49 @@ class ViewBidAsk : FrameLayout {
         _label_arrays.forEachIndexed { index, jsonArray ->
             //  买
             if (index < bids_size) {
-                val data = bids.getJSONObject(index)
-                jsonArray.get(1).text = OrgUtils.formatFloatValue(data.getString("quote").toDouble(), _tradingPair._numPrecision, false)
-                jsonArray.get(2).text = OrgUtils.formatFloatValue(data.getString("price").toDouble(), _tradingPair._displayPrecision, false)
+                val order = bids.getJSONObject(index)
+                if (order.optBoolean("iscall")) {
+                    jsonArray[0].setTextColor(resources.getColor(R.color.theme01_callOrderColor))
+                    jsonArray[1].setTextColor(resources.getColor(R.color.theme01_callOrderColor))
+                    jsonArray[2].setTextColor(resources.getColor(R.color.theme01_callOrderColor))
+                } else {
+                    jsonArray[0].setTextColor(resources.getColor(R.color.theme01_textColorNormal))
+                    jsonArray[1].setTextColor(resources.getColor(R.color.theme01_textColorNormal))
+                    jsonArray[2].setTextColor(resources.getColor(R.color.theme01_buyColor))
+                }
+                jsonArray[1].text = OrgUtils.formatFloatValue(order.getString("quote").toDouble(), _tradingPair._numPrecision, false)
+                jsonArray[2].text = OrgUtils.formatFloatValue(order.getString("price").toDouble(), _tradingPair._displayPrecision, false)
                 //  买盘 背景
-                jsonArray.get(6).visibility = View.VISIBLE
-                val layout_params = LinearLayout.LayoutParams(max(min(data.getDouble("sum") * half_width / max_sum, half_width.toDouble()), 1.0).roundToInt(), layout_view_height)
-                jsonArray.get(6).layoutParams = layout_params
+                jsonArray[6].visibility = View.VISIBLE
+                val layout_params = LinearLayout.LayoutParams(max(min(order.getDouble("sum") * half_width / max_sum, half_width.toDouble()), 1.0).roundToInt(), layout_view_height)
+                jsonArray[6].layoutParams = layout_params
             } else {
-                jsonArray.get(1).text = "--"
-                jsonArray.get(2).text = "--"
-                jsonArray.get(6).visibility = View.GONE
+                jsonArray[1].text = "--"
+                jsonArray[2].text = "--"
+                jsonArray[6].visibility = View.GONE
             }
             //  卖
             if (index < asks_size) {
-                val data = asks.getJSONObject(index)
-                jsonArray.get(4).text = OrgUtils.formatFloatValue(data.getString("quote").toDouble(), _tradingPair._numPrecision, false)
-                jsonArray.get(3).text = OrgUtils.formatFloatValue(data.getString("price").toDouble(), _tradingPair._displayPrecision, false)
+                val order = asks.getJSONObject(index)
+                if (order.optBoolean("iscall")) {
+                    jsonArray[3].setTextColor(resources.getColor(R.color.theme01_callOrderColor))
+                    jsonArray[4].setTextColor(resources.getColor(R.color.theme01_callOrderColor))
+                    jsonArray[5].setTextColor(resources.getColor(R.color.theme01_callOrderColor))
+                } else {
+                    jsonArray[3].setTextColor(resources.getColor(R.color.theme01_sellColor))
+                    jsonArray[4].setTextColor(resources.getColor(R.color.theme01_textColorNormal))
+                    jsonArray[5].setTextColor(resources.getColor(R.color.theme01_textColorNormal))
+                }
+                jsonArray[4].text = OrgUtils.formatFloatValue(order.getString("quote").toDouble(), _tradingPair._numPrecision, false)
+                jsonArray[3].text = OrgUtils.formatFloatValue(order.getString("price").toDouble(), _tradingPair._displayPrecision, false)
                 //  卖盘背景
-                jsonArray.get(7).visibility = View.VISIBLE
-                val layout_params = LinearLayout.LayoutParams(max(min(data.getDouble("sum") * half_width / max_sum, half_width.toDouble()), 1.0).roundToInt(), layout_view_height)
-                jsonArray.get(7).layoutParams = layout_params
+                jsonArray[7].visibility = View.VISIBLE
+                val layout_params = LinearLayout.LayoutParams(max(min(order.getDouble("sum") * half_width / max_sum, half_width.toDouble()), 1.0).roundToInt(), layout_view_height)
+                jsonArray[7].layoutParams = layout_params
             } else {
-                jsonArray.get(4).text = "--"
-                jsonArray.get(3).text = "--"
-                jsonArray.get(7).visibility = View.GONE
+                jsonArray[4].text = "--"
+                jsonArray[3].text = "--"
+                jsonArray[7].visibility = View.GONE
             }
         }
     }

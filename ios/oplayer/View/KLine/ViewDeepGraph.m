@@ -10,6 +10,7 @@
 #import "ViewDeepGraph.h"
 #import "ThemeManager.h"
 #import "ViewKLine.h"
+#import "OrgUtils.h"
 
 @interface ViewDeepGraph()
 {
@@ -89,7 +90,7 @@
     CGFloat fGridW = 4.0f;
     
     //  买盘
-    CGSize str_size = [self auxSizeWithText:bid_str font:[UIFont systemFontOfSize:kBTS_KLINE_PRICE_VOL_FONTSIZE]
+    CGSize str_size = [self auxSizeWithText:bid_str font:_font
                                     maxsize:CGSizeMake(self.bounds.size.width, 9999)];
     CATextLayer* txt = [self getTextLayerWithString:bid_str
                                           textColor:[ThemeManager sharedThemeManager].textColorNormal
@@ -107,7 +108,7 @@
     [self.layer addSublayer:layer];
     
     //  卖盘
-    CGSize str_size1 = [self auxSizeWithText:ask_str font:[UIFont systemFontOfSize:kBTS_KLINE_PRICE_VOL_FONTSIZE]
+    CGSize str_size1 = [self auxSizeWithText:ask_str font:_font
                                     maxsize:CGSizeMake(self.bounds.size.width, 9999)];
     CATextLayer* txt1 = [self getTextLayerWithString:ask_str
                                           textColor:[ThemeManager sharedThemeManager].textColorNormal
@@ -262,8 +263,7 @@
         double value = min_sum + diff_sum * i;
         CGFloat offsetY = self.fMainGraphOffset + self.fMainGraphHeight - self.fMainGraphRowH * i;
         
-        NSString* num_formatter = [NSString stringWithFormat:@"%%0.%@f", @(_tradingPair.numPrecision)];
-        id str = [NSString stringWithFormat:num_formatter, value];
+        id str = [OrgUtils formatFloatValue:value precision:_tradingPair.numPrecision];
         
         CATextLayer* txt = [self getTextLayerWithString:str
                                               textColor:[ThemeManager sharedThemeManager].textColorNormal
@@ -279,8 +279,7 @@
     for (int i = 0; i < 3; ++i) {
         double value = min_price + diff_price * i;
         
-        NSString* price_formatter = [NSString stringWithFormat:@"%%0.%@f", @(_tradingPair.displayPrecision)];
-        id str = [NSString stringWithFormat:price_formatter, value];
+        id str = [OrgUtils formatFloatValue:value precision:_tradingPair.displayPrecision];
         
         CATextLayer* txt = [self getTextLayerWithString:str
                                               textColor:[ThemeManager sharedThemeManager].textColorNormal

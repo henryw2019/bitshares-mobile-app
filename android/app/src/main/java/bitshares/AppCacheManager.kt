@@ -14,6 +14,7 @@ class AppCacheManager {
         kwmPasswordWithWallet(2),       //  密码登录+钱包模式
         kwmPrivateKeyWithWallet(3),     //  活跃私钥+钱包模式
         kwmFullWalletMode(4),           //  完整钱包模式（兼容官方客户端的钱包格式）
+        kwmBrainKeyWithWallet(5),       //  助记词+钱包模式
     }
 
     companion object {
@@ -125,6 +126,27 @@ class AppCacheManager {
     fun saveCustomMarketsToFile() {
         val fullname = OrgUtils.makeFullPathByAppStorage(kAppCacheNameCustomMarketsByApp)
         OrgUtils.write_file_from_json(fullname, _custom_markets)
+    }
+
+    /**
+     * for native KV caches
+     */
+    fun getPref(key: String, default_value: Any? = null): Any? {
+        if (_native_caches.has(key)) {
+            return _native_caches.get(key)
+        } else {
+            return default_value
+        }
+    }
+
+    fun setPref(key: String, value: Any): AppCacheManager {
+        _native_caches.put(key, value)
+        return this
+    }
+
+    fun deletePref(key: String): AppCacheManager {
+        _native_caches.remove(key)
+        return this
     }
 
     /**
@@ -404,7 +426,7 @@ class AppCacheManager {
         val fullpath = "${OrgUtils.getAppDirWebServerImport()}${filename}"
 
         //  [统计]
-        fabricLogCustom("auto_backupwallet", jsonObjectfromKVS("final_wallet_name", final_wallet_name, "has_prefix", hasDatePrefix))
+        btsppLogCustom("auto_backupwallet", jsonObjectfromKVS("final_wallet_name", final_wallet_name, "has_prefix", hasDatePrefix))
         return OrgUtils.write_file(fullpath, wallet_bin)
     }
 }

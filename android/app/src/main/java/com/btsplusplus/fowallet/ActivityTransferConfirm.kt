@@ -4,7 +4,6 @@ import android.content.Intent
 import android.os.Bundle
 import android.widget.TextView
 import bitshares.OrgUtils
-import bitshares.TempManager
 import kotlinx.android.synthetic.main.activity_transfer_confirm.*
 
 class ActivityTransferConfirm : BtsppActivity() {
@@ -24,7 +23,7 @@ class ActivityTransferConfirm : BtsppActivity() {
         }
 
         // 获取参数
-        val transfer_args = TempManager.sharedTempManager().get_args_as_JSONObject()
+        val transfer_args = btspp_args_as_JSONObject()
 
         // 设置页面的6个字段
         val asset = transfer_args.getJSONObject("asset")

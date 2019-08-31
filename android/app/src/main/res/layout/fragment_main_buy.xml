@@ -63,7 +63,7 @@
                 android:layout_height="match_parent"
                 android:orientation="vertical">
 
-
+                <!-- 买卖价格 -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="28dp"
@@ -83,7 +83,7 @@
                         android:textSize="16dp"
                         android:ems="10"
                         android:background="@null"
-                        android:hint="@string/buyPageBuyPrice"
+                        android:hint="@string/kPlaceHolderBuyPrice"
                         android:textColorHint="@color/theme01.textColorGray"
                         android:textColor="@color/theme01.textColorMain" />
 
@@ -104,9 +104,9 @@
                         android:layout_height="match_parent"
                         android:layout_weight="1"
                         android:background="#00000000"
-                        android:text="@string/buyPageBuyAPrice"
+                        android:text="@string/kTailerBtnBid1"
                         android:textAllCaps="false"
-                        android:textColor="@color/theme01.textColorNormal" />
+                        android:textColor="@color/theme01.textColorHighlight" />
 
                     <Button
                         android:id="@+id/btn_tailer_ask1"
@@ -115,13 +115,14 @@
                         android:layout_height="match_parent"
                         android:layout_weight="1"
                         android:background="#00000000"
-                        android:text="@string/buyPageSellAPrice"
+                        android:text="@string/kTailerBtnAsk1"
                         android:textAllCaps="false"
-                        android:textColor="@color/theme01.textColorNormal" />
+                        android:textColor="@color/theme01.textColorHighlight" />
                 </LinearLayout>
 
                 <View android:layout_height="1dp" android:background="@color/theme01.textColorGray" android:layout_width="fill_parent"></View>
 
+                <!-- 买卖数量 -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="28dp"
@@ -141,7 +142,7 @@
                         android:layout_weight="1"
                         android:ems="10"
                         android:background="@null"
-                        android:hint="@string/buyPageBuyNumber"
+                        android:hint="@string/kPlaceHolderBuyAmount"
                         android:textSize="16dp"
                         android:textColorHint="@color/theme01.textColorGray"
                         android:textColor="@color/theme01.textColorMain" />
@@ -164,7 +165,7 @@
                         android:background="#00000000"
                         android:text="25%"
                         android:textSize="13dp"
-                        android:textColor="@color/theme01.textColorNormal" />
+                        android:textColor="@color/theme01.textColorHighlight" />
 
                     <Button
                         android:id="@+id/btn_tailer_percent50"
@@ -174,7 +175,7 @@
                         android:background="#00000000"
                         android:text="50%"
                         android:textSize="13dp"
-                        android:textColor="@color/theme01.textColorNormal" />
+                        android:textColor="@color/theme01.textColorHighlight" />
                     <Button
                         android:id="@+id/btn_tailer_percent100"
                         android:layout_width="50dp"
@@ -183,30 +184,68 @@
                         android:background="#00000000"
                         android:text="100%"
                         android:textSize="13dp"
-                        android:textColor="@color/theme01.textColorNormal" />
+                        android:textColor="@color/theme01.textColorHighlight" />
 
 
                 </LinearLayout>
                 <View android:layout_height="1dp" android:background="@color/theme01.textColorGray" android:layout_width="fill_parent"></View>
 
+                <!-- 交易总额 -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="28dp"
+                    android:orientation="horizontal"
+                    android:background="@color/colorPrimary"
+                    android:layout_marginTop="10dp">
+
+                    <EditText
+                        android:id="@+id/tf_total"
+                        android:singleLine="true"
+                        android:maxLines="1"
+                        android:digits=".1234567890"
+                        android:inputType="phone|number"
+                        android:maxLength="24"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:ems="10"
+                        android:background="@null"
+                        android:hint="@string/kLableTotalPrice"
+                        android:textSize="16dp"
+                        android:textColorHint="@color/theme01.textColorGray"
+                        android:textColor="@color/theme01.textColorMain" />
+
+                    <TextView
+                        android:id="@+id/label_txt_tf_total_tailer"
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent"
+                        android:gravity="center_vertical|center"
+                        android:text="BTS"
+                        android:textSize="13dp"
+                        android:textColor="@color/theme01.textColorNormal" />
+                </LinearLayout>
+
+                <View android:layout_height="1dp" android:background="@color/theme01.textColorGray" android:layout_width="fill_parent"></View>
 
                 <LinearLayout
                     android:layout_width="match_parent"
-                    android:layout_height="18dp"
+                    android:layout_height="28dp"
                     android:orientation="horizontal"
                     android:background="@color/colorPrimary"
+                    android:layout_marginBottom="8dp"
                     android:layout_marginTop="8dp">
 
                     <TextView
+                        android:id="@+id/label_txt_available_n"
                         android:layout_width="wrap_content"
                         android:layout_height="match_parent"
                         android:layout_weight="1"
                         android:layout_gravity="center_vertical"
                         android:textSize="13dp"
-                        android:text="@string/nameAvaliable"
+                        android:text="@string/kLableAvailable"
                         android:textColor="@color/theme01.textColorNormal" />
                     <TextView
-                        android:id="@+id/label_txt_available_n"
+                        android:id="@+id/label_txt_market_fee"
                         android:layout_width="wrap_content"
                         android:layout_height="match_parent"
                         android:layout_weight="1"
@@ -214,39 +253,11 @@
                         android:layout_gravity="center_vertical|right"
                         android:textColor="@color/theme01.textColorNormal"
                         android:textSize="13dp"
-                        android:text="--BTS"
+                        android:text="0%"
                         />
                 </LinearLayout>
 
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="40dp"
-                    android:orientation="horizontal"
-                    android:background="@color/colorPrimary"
-                    android:layout_marginTop="0dp">
-
-
-                    <TextView
-                        android:layout_width="30dp"
-                        android:layout_height="match_parent"
-                        android:layout_weight="1"
-                        android:gravity="center_vertical"
-                        android:text="@string/buyPageTradeAmount"
-                        android:textColor="@color/theme01.textColorNormal"
-                        android:textSize="16dp" />
-
-                    <TextView
-                        android:id="@+id/label_txt_total_price"
-                        android:layout_width="wrap_content"
-                        android:layout_height="match_parent"
-                        android:layout_weight="1"
-                        android:gravity="center_vertical|right"
-                        android:text="--BTS"
-                        android:textColor="@color/theme01.textColorMain"
-                        android:textSize="13dp" />
-
-                </LinearLayout>
-
+                <!-- 买卖or登录按钮 -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="36dp"
@@ -263,7 +274,7 @@
                         android:layout_weight="1"
                         android:background="@color/theme01.buyColor"
                         android:padding="5dp"
-                        android:text="@string/nameLogin"
+                        android:text="@string/kNormalCellBtnLogin"
                         android:textColor="@color/theme01.textColorMain"
                         android:textAllCaps="false"
                         android:textSize="16dp" />
@@ -280,7 +291,7 @@
                         android:layout_height="wrap_content"
                         android:textSize="15dp"
                         android:layout_weight="1"
-                        android:text="@string/buyPageCurrentDelegate"
+                        android:text="@string/kLabelOpenOrders"
                         android:textColor="@color/theme01.textColorMain"
                         android:gravity="center_vertical"
                         android:layout_gravity="center_vertical"/>
@@ -292,7 +303,7 @@
                         android:layout_height="wrap_content"
                         android:textSize="13dp"
                         android:layout_weight="1"
-                        android:text="@string/nameAll"
+                        android:text="@string/kLabelSendAll"
                         android:textColor="@color/theme01.textColorHighlight"
                         android:gravity="right|center_vertical"
                         android:layout_gravity="center_vertical"/>

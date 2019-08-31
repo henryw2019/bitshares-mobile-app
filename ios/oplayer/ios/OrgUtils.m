@@ -30,6 +30,8 @@
 
 #import <AVFoundation/AVFoundation.h>
 
+#import <Flurry/Flurry.h>
+
 #define CHUNK_SIZE 1024
 
 /**
@@ -82,6 +84,15 @@ NSString* gSmallDataDecode(NSString* str, NSString* key)
 @implementation OrgUtils
 
 /**
+ *  日志统计
+ */
++ (void)logEvents:(NSString*)eventname params:(NSDictionary*)params
+{
+    [Answers logCustomEventWithName:eventname customAttributes:params];
+    [Flurry logEvent:eventname withParameters:params];
+}
+
+/**
  *  示石墨烯网络错误信息（部分错误特殊处理）
  */
 + (void)showGrapheneError:(id)error
@@ -98,6 +109,12 @@ NSString* gSmallDataDecode(NSString* str, NSString* key)
                 }
                 if ([message rangeOfString:@"Insufficient Balance"].location != NSNotFound){
                     [self makeToast:NSLocalizedString(@"kGPErrorInsufficientBalance", @"手续费不足。")];
+                    return;
+                }
+                NSString* lowermsg = [message lowercaseString];
+                if ([lowermsg rangeOfString:@"preimage size"].location != NSNotFound ||
+                    [lowermsg rangeOfString:@"provided preimage"].location != NSNotFound){
+                    [self makeToast:NSLocalizedString(@"kGPErrorRedeemInvalidPreimage", @"原像不正确。")];
                     return;
                 }
                 //  TODO:fowallet 提案等手续费不足等情况显示
@@ -172,6 +189,48 @@ NSString* gSmallDataDecode(NSString* str, NSString* key)
 }
 
 /**
+ *  辅助 - 根据字符串获取 NSDecimalNumber 对象，如果字符串以小数点结尾，则默认添加0。
+ */
++ (NSDecimalNumber*)auxGetStringDecimalNumberValue:(NSString*)str
+{
+    if (!str || [str isEqualToString:@""]){
+        return [NSDecimalNumber zero];
+    }
+    
+    LangManager* langMgr = [LangManager sharedLangManager];
+    NSString* decimalSeparator = langMgr.appDecimalSeparator;
+    NSString* groupingSeparator = langMgr.appGroupingSeparator;
+    
+    //  去除组分割符
+    str = [[str componentsSeparatedByString:groupingSeparator] componentsJoinedByString:@""];
+    
+    //  以小数点结尾则在默认添加0。
+    if ([str rangeOfString:decimalSeparator].location == [str length] - 1){
+        str = [NSString stringWithFormat:@"%@0", str];
+    }
+    
+    //  替换小数点
+    if (![decimalSeparator isEqualToString:@"."]){
+        str = [str stringByReplacingOccurrencesOfString:decimalSeparator withString:@"."];
+    }
+    
+    return [NSDecimalNumber decimalNumberWithString:str];
+}
+
+/**
+ *  更新小数点为APP默认小数点样式（可能和输入法中下小数点不同，比如APP里是`.`号，而输入法则是`,`号。
+ */
++ (void)correctTextFieldDecimalSeparatorDisplayStyle:(UITextField*)textField
+{
+    LangManager* langMgr = [LangManager sharedLangManager];
+    NSString* imeDecimalSeparator = [langMgr queryDecimalSeparatorByLannguage:[UIApplication sharedApplication].textInputMode.primaryLanguage];
+    NSString* appDecimalSeparator = langMgr.appDecimalSeparator;
+    if (![imeDecimalSeparator isEqualToString:appDecimalSeparator]){
+        textField.text = [textField.text stringByReplacingOccurrencesOfString:imeDecimalSeparator withString:appDecimalSeparator];
+    }
+}
+
+/**
  *  对于价格 or 数量类型的输入，判断是否是有效输入等。
  *  规则：
  *  1、不能有多个小数点
@@ -181,26 +240,35 @@ NSString* gSmallDataDecode(NSString* str, NSString* key)
  */
 + (BOOL)isValidAmountOrPriceInput:(NSString*)origin_string range:(NSRange)range new_string:(NSString*)new_string precision:(NSInteger)precision
 {
+    //  获取小数点符号
+    LangManager* langMgr = [LangManager sharedLangManager];
+    
+    NSString* imeDecimalSeparator = [langMgr queryDecimalSeparatorByLannguage:[UIApplication sharedApplication].textInputMode.primaryLanguage];
+    NSString* appDecimalSeparator = langMgr.appDecimalSeparator;
+    
+    unichar appDecimalSeparatorUnichar = [appDecimalSeparator characterAtIndex:0];
+    unichar imeDecimalSeparatorUnichar = [imeDecimalSeparator characterAtIndex:0];
+    
     //  REMARK：限制输入 第一个字母不能是小数点，并且总共只能有1个小数点。
     BOOL isHaveDian = NO;
-    if (origin_string && [origin_string rangeOfString:@"."].location != NSNotFound){
+    if (origin_string && [origin_string rangeOfString:appDecimalSeparator].location != NSNotFound){
         isHaveDian = YES;
     }
     if (new_string && [new_string length] > 0){
         //  当前输入的字符
         unichar single = [new_string characterAtIndex:0];
         //  数据格式正确
-        if ((single >= '0' && single <= '9') || single == '.'){
+        if ((single >= '0' && single <= '9') || single == appDecimalSeparatorUnichar || single == imeDecimalSeparatorUnichar){
             //  首字母
             if ([origin_string length] == 0){
                 //  REMARK：不能小数点开头
-                if (single == '.'){
+                if (single == appDecimalSeparatorUnichar || single == imeDecimalSeparatorUnichar){
                     return NO;
                 }
                 return YES;
             }
             //  非首字母-小数点
-            if (single == '.'){
+            if (single == appDecimalSeparatorUnichar || single == imeDecimalSeparatorUnichar){
                 //  REMARK：不能包含多个小数点
                 if (isHaveDian)
                 {
@@ -209,8 +277,12 @@ NSString* gSmallDataDecode(NSString* str, NSString* key)
                 return YES;
             }else{
                 if (isHaveDian){
-                    NSString* test_string = [origin_string stringByReplacingCharactersInRange:range withString:new_string];
-                    NSRange new_range = [test_string rangeOfString:@"."];
+                    NSString* dst_string = new_string;
+                    if (appDecimalSeparatorUnichar != imeDecimalSeparatorUnichar){
+                        dst_string = [new_string stringByReplacingOccurrencesOfString:imeDecimalSeparator withString:appDecimalSeparator];
+                    }
+                    NSString* test_string = [origin_string stringByReplacingCharactersInRange:range withString:dst_string];
+                    NSRange new_range = [test_string rangeOfString:appDecimalSeparator];
                     if (new_range.location != NSNotFound){
                         int fraction_digits = (int)test_string.length - ((int)new_range.location + 1);
                         //  REMARK：限制小数位数
@@ -323,6 +395,48 @@ NSString* gSmallDataDecode(NSString* str, NSString* key)
         if (![pre evaluateWithObject:password]){
             return NO;
         }
+    }
+    return YES;
+}
+
+/**
+ *  (public) 原像格式是否正确　TODO:fowallet 格式细节
+ *  格式：20位以上，包含大写字母和数字。
+ */
++ (BOOL)isValidHTCLPreimageFormat:(NSString*)preimage
+{
+    if (!preimage){
+        return NO;
+    }
+    if ([preimage length] < 20){//TODO:fowallet cfg
+        return NO;
+    }
+    //  大写、数字检测
+    NSArray* regular_list = @[@".*[A-Z]+.*", @".*[0-9]+.*"];
+    for (id regular in regular_list) {
+        NSPredicate* pre = [NSPredicate predicateWithFormat:@"SELF MATCHES %@", regular];
+        if (![pre evaluateWithObject:preimage]){
+            return NO;
+        }
+    }
+    return YES;
+}
+
+/**
+ *  是否是有效的16进制字符串检测。
+ */
++ (BOOL)isValidHexString:(NSString*)hexstring
+{
+    if (!hexstring){
+        return NO;
+    }
+    if (([hexstring length] % 2) != 0){
+        return NO;
+    }
+    //  A-F、a-f、0-9 组成
+    NSPredicate* pre = [NSPredicate predicateWithFormat:@"SELF MATCHES %@", @"^[A-Fa-f0-9]+$"];
+    if (![pre evaluateWithObject:hexstring]){
+        return NO;
     }
     return YES;
 }
@@ -528,6 +642,53 @@ NSString* gSmallDataDecode(NSString* str, NSString* key)
 }
 
 /**
+ *  获取 worker 类型。0:refund 1:vesting 2:burn
+ */
++ (NSInteger)getWorkerType:(NSDictionary*)worker_json_object
+{
+    id worker = [worker_json_object objectForKey:@"worker"];
+    if (worker && [worker isKindOfClass:[NSArray class]] && [worker count] > 0){
+        return [[worker firstObject] integerValue];
+    }
+    //  default is vesting worker
+    return (NSInteger)ebwt_vesting;
+}
+
+/**
+ *  从操作的结果结构体中提取新对象ID。
+ */
++ (NSString*)extractNewObjectIDFromOperationResult:(id)operation_result
+{
+    //  typedef fc::static_variant<void_result,object_id_type,asset> operation_result
+    //  object_id_type index value is 1
+    if (operation_result && [operation_result count] == 2 && [[operation_result firstObject] integerValue] == 1){
+        return [operation_result objectAtIndex:1];
+    }
+    return nil;
+}
+
+/**
+ *  从广播交易结果获取新生成的对象ID号（比如新的订单号、新HTLC号等）
+ *  考虑到数据结构可能变更，加各种safe判断。
+ *  REMARK：仅考虑一个 op 的情况，如果一个交易包含多个 op 则不支持。
+ */
++ (NSString*)extractNewObjectID:(id)transaction_confirmation_list
+{
+    id new_object_id = nil;
+    if (transaction_confirmation_list && [transaction_confirmation_list count] > 0){
+        id trx = [transaction_confirmation_list[0] objectForKey:@"trx"];
+        if (trx){
+            id operation_results = [trx objectForKey:@"operation_results"];
+            if (operation_results){
+                id operation_result = [operation_results safeObjectAtIndex:0];
+                return [self extractNewObjectIDFromOperationResult:operation_result];
+            }
+        }
+    }
+    return new_object_id;
+}
+
+/**
  *  提取OPDATA中所有的石墨烯ID信息。
  */
 + (void)extractObjectID:(NSUInteger)opcode opdata:(id)opdata container:(NSMutableDictionary*)container
@@ -582,6 +743,20 @@ NSString* gSmallDataDecode(NSString* str, NSString* key)
         case ebo_account_update:
         {
             [container setObject:@YES forKey:[opdata objectForKey:@"account"]];
+            id owner = [opdata objectForKey:@"owner"];
+            if (owner){
+                for (id item in [owner objectForKey:@"account_auths"]) {
+                    assert([item isKindOfClass:[NSArray class]] && [item count] == 2);
+                    [container setObject:@YES forKey:[item firstObject]];
+                }
+            }
+            id active = [opdata objectForKey:@"active"];
+            if (active){
+                for (id item in [active objectForKey:@"account_auths"]) {
+                    assert([item isKindOfClass:[NSArray class]] && [item count] == 2);
+                    [container setObject:@YES forKey:[item firstObject]];
+                }
+            }
         }
             break;
         case ebo_account_whitelist:
@@ -673,7 +848,7 @@ NSString* gSmallDataDecode(NSString* str, NSString* key)
             break;
         case ebo_proposal_create:
         {
-            //  TODO:
+            [container setObject:@YES forKey:[opdata objectForKey:@"fee_paying_account"]];
         }
             break;
         case ebo_proposal_update:
@@ -779,7 +954,64 @@ NSString* gSmallDataDecode(NSString* str, NSString* key)
             break;
         case ebo_asset_claim_fees:
         {
-            //  TODO:
+            [container setObject:@YES forKey:[opdata objectForKey:@"issuer"]];
+            [container setObject:@YES forKey:[[opdata objectForKey:@"amount_to_claim"] objectForKey:@"asset_id"]];
+        }
+            break;
+        case ebo_fba_distribute:
+        {
+            //  TODO:2.1 fowallet 未完成
+        }
+            break;
+        case ebo_bid_collateral:
+        {
+            //  TODO:2.1 fowallet 未完成
+        }
+            break;
+        case ebo_execute_bid:
+        {
+            //  TODO:2.1 fowallet 未完成
+        }
+            break;
+        case ebo_asset_claim_pool:
+        {
+            //  TODO:2.1 fowallet 未完成
+        }
+            break;
+        case ebo_asset_update_issuer:
+        {
+            [container setObject:@YES forKey:[opdata objectForKey:@"issuer"]];
+            [container setObject:@YES forKey:[opdata objectForKey:@"asset_to_update"]];
+            [container setObject:@YES forKey:[opdata objectForKey:@"new_issuer"]];
+        }
+            break;
+        case ebo_htlc_create:
+        {
+            [container setObject:@YES forKey:[opdata objectForKey:@"from"]];
+            [container setObject:@YES forKey:[opdata objectForKey:@"to"]];
+            [container setObject:@YES forKey:[[opdata objectForKey:@"amount"] objectForKey:@"asset_id"]];
+        }
+            break;
+        case ebo_htlc_redeem:
+        {
+            [container setObject:@YES forKey:[opdata objectForKey:@"redeemer"]];
+        }
+            break;
+        case ebo_htlc_redeemed:
+        {
+            [container setObject:@YES forKey:[opdata objectForKey:@"redeemer"]];
+            [container setObject:@YES forKey:[opdata objectForKey:@"to"]];
+            [container setObject:@YES forKey:[[opdata objectForKey:@"amount"] objectForKey:@"asset_id"]];
+        }
+            break;
+        case ebo_htlc_extend:
+        {
+            [container setObject:@YES forKey:[opdata objectForKey:@"update_issuer"]];
+        }
+            break;
+        case ebo_htlc_refund:
+        {
+            [container setObject:@YES forKey:[opdata objectForKey:@"to"]];
         }
             break;
         default:
@@ -790,13 +1022,14 @@ NSString* gSmallDataDecode(NSString* str, NSString* key)
 /**
  *  转换OP数据为UI显示数据。
  */
-+ (NSDictionary*)processOpdata2UiData:(NSUInteger)opcode opdata:(id)opdata isproposal:(BOOL)isproposal
++ (NSDictionary*)processOpdata2UiData:(NSUInteger)opcode opdata:(id)opdata opresult:(id)opresult isproposal:(BOOL)isproposal
 {
     ChainObjectManager* chainMgr = [ChainObjectManager sharedChainObjectManager];
     ThemeManager* theme =  [ThemeManager sharedThemeManager];
     
-#define GRAPHENE_NAME(key)      [[chainMgr getChainObjectByID:opdata[key]] objectForKey:@"name"]
-#define GRAPHENE_ASSET_N(key)   [self formatAssetAmountItem:opdata[key]]
+#define GRAPHENE_NAME(key)          [[chainMgr getChainObjectByID:opdata[key]] objectForKey:@"name"]
+#define GRAPHENE_ASSET_SYMBOL(key)  [[chainMgr getChainObjectByID:opdata[key]] objectForKey:@"symbol"]
+#define GRAPHENE_ASSET_N(key)       [self formatAssetAmountItem:opdata[key]]
     
     NSString* name = nil;
     NSString* desc = nil;
@@ -826,8 +1059,8 @@ NSString* gSmallDataDecode(NSString* str, NSString* key)
             id quote_asset = infos[@"quote"];
             id n_price = infos[@"n_price"];
             id n_quote = infos[@"n_quote"];
-            id str_price = [NSString stringWithFormat:@"%@%@/%@", n_price, base_asset[@"symbol"], quote_asset[@"symbol"]];
-            id str_amount = [NSString stringWithFormat:@"%@%@", n_quote, quote_asset[@"symbol"]];
+            id str_price = [NSString stringWithFormat:@"%@%@/%@", [self formatFloatValue:n_price], base_asset[@"symbol"], quote_asset[@"symbol"]];
+            id str_amount = [NSString stringWithFormat:@"%@%@", [self formatFloatValue:n_quote], quote_asset[@"symbol"]];
             
             if ([infos[@"issell"] boolValue]){
                 name = NSLocalizedString(@"kOpType_limit_order_create_sell", @"创建卖单");
@@ -889,8 +1122,8 @@ NSString* gSmallDataDecode(NSString* str, NSString* key)
             id quote_asset = infos[@"quote"];
             id n_price = infos[@"n_price"];
             id n_quote = infos[@"n_quote"];
-            id str_price = [NSString stringWithFormat:@"%@%@/%@", n_price, base_asset[@"symbol"], quote_asset[@"symbol"]];
-            id str_amount = [NSString stringWithFormat:@"%@%@", n_quote, quote_asset[@"symbol"]];
+            id str_price = [NSString stringWithFormat:@"%@%@/%@", [self formatFloatValue:n_price], base_asset[@"symbol"], quote_asset[@"symbol"]];
+            id str_amount = [NSString stringWithFormat:@"%@%@", [self formatFloatValue:n_quote], quote_asset[@"symbol"]];
             
             if ([infos[@"issell"] boolValue]){
                 desc = [NSString stringWithFormat:NSLocalizedString(@"kOpDesc_fill_order_sell", @"%@ 以 %@ 的价格卖出 %@。"),
@@ -921,8 +1154,18 @@ NSString* gSmallDataDecode(NSString* str, NSString* key)
         case ebo_account_whitelist:
         {
             name = NSLocalizedString(@"kOpType_account_whitelist", @"账号白名单");
-            desc = NSLocalizedString(@"kOpDesc_account_whitelist", @"更新账号白名单。");
-            //  TODO:待细化
+            NSInteger new_listing_flag = [[opdata objectForKey:@"new_listing"] integerValue];
+            BOOL in_white_list = (new_listing_flag & ebwlf_white_listed) != 0;
+            BOOL in_black_list = (new_listing_flag & ebwlf_black_listed) != 0;
+            if (in_white_list && in_black_list){
+                desc = [NSString stringWithFormat:NSLocalizedString(@"kOpDesc_account_whitelist_both", @"%@ 添加 %@ 到白名单和黑名单列表。"), GRAPHENE_NAME(@"authorizing_account"), GRAPHENE_NAME(@"account_to_list")];
+            }else if (in_white_list){
+                desc = [NSString stringWithFormat:NSLocalizedString(@"kOpDesc_account_whitelist_white", @"%@ 添加 %@ 到白名单列表。"), GRAPHENE_NAME(@"authorizing_account"), GRAPHENE_NAME(@"account_to_list")];
+            }else if (in_black_list){
+                desc = [NSString stringWithFormat:NSLocalizedString(@"kOpDesc_account_whitelist_black", @"%@ 添加 %@ 到黑名单列表。"), GRAPHENE_NAME(@"authorizing_account"), GRAPHENE_NAME(@"account_to_list")];
+            }else{
+                desc = [NSString stringWithFormat:NSLocalizedString(@"kOpDesc_account_whitelist_none", @"%@ 从黑白名单列表移除 %@。"), GRAPHENE_NAME(@"authorizing_account"), GRAPHENE_NAME(@"account_to_list")];
+            }
         }
             break;
         case ebo_account_upgrade:
@@ -953,8 +1196,8 @@ NSString* gSmallDataDecode(NSString* str, NSString* key)
         case ebo_asset_update:
         {
             name = NSLocalizedString(@"kOpType_asset_update", @"更新资产");
-            desc = NSLocalizedString(@"kOpDesc_asset_update", @"更新资产。");
-            //  TODO:待细化
+            id symbol = GRAPHENE_ASSET_SYMBOL(@"asset_to_update");
+            desc = [NSString stringWithFormat:NSLocalizedString(@"kOpDesc_asset_update", @"更新资产 %@。"), symbol];
         }
             break;
         case ebo_asset_update_bitasset:
@@ -967,8 +1210,7 @@ NSString* gSmallDataDecode(NSString* str, NSString* key)
         case ebo_asset_update_feed_producers:
         {
             name = NSLocalizedString(@"kOpType_asset_update_feed_producers", @"更新喂价者");
-            desc = NSLocalizedString(@"kOpDesc_asset_update_feed_producers", @"更新提供喂价的账号信息。");
-            //  TODO:待细化
+            desc = [NSString stringWithFormat:NSLocalizedString(@"kOpDesc_asset_update_feed_producers", @"%@ 资产更新发布喂价的账号信息。"), GRAPHENE_ASSET_SYMBOL(@"asset_to_update")];
         }
             break;
         case ebo_asset_issue:
@@ -981,8 +1223,9 @@ NSString* gSmallDataDecode(NSString* str, NSString* key)
         case ebo_asset_reserve:
         {
             name = NSLocalizedString(@"kOpType_asset_reserve", @"资产销毁");
-            desc = NSLocalizedString(@"kOpDesc_asset_reserve", @"销毁资产。");
-            //  TODO:待细化
+            desc = [NSString stringWithFormat:NSLocalizedString(@"kOpDesc_asset_reserve", @"%@ 销毁 %@。"),
+                    GRAPHENE_NAME(@"payer"),
+                    GRAPHENE_ASSET_N(@"amount_to_reserve")];
         }
             break;
         case ebo_asset_fund_fee_pool:
@@ -994,9 +1237,10 @@ NSString* gSmallDataDecode(NSString* str, NSString* key)
             break;
         case ebo_asset_settle:
         {
-            name = NSLocalizedString(@"kOpType_asset_settle", @"资产清算");
-            desc = NSLocalizedString(@"kOpDesc_asset_settle", @"清算资产。");
-            //  TODO:待细化
+            name = NSLocalizedString(@"kOpType_asset_settle", @"资产强清");
+            desc = [NSString stringWithFormat:NSLocalizedString(@"kOpDesc_asset_settle", @"%@ 强清 %@。"),
+                    GRAPHENE_NAME(@"account"),
+                    GRAPHENE_ASSET_N(@"amount")];
         }
             break;
         case ebo_asset_global_settle:
@@ -1030,8 +1274,12 @@ NSString* gSmallDataDecode(NSString* str, NSString* key)
         case ebo_proposal_create:
         {
             name = NSLocalizedString(@"kOpType_proposal_create", @"创建提案");
-            desc = NSLocalizedString(@"kOpDesc_proposal_create", @"创建提案。");
-            //  TODO:待细化
+            id new_proposal_id = [self extractNewObjectIDFromOperationResult:opresult];
+            if (new_proposal_id){
+                desc = [NSString stringWithFormat:NSLocalizedString(@"kOpDesc_proposal_create_with_id", @"%@ 创建提案。#%@"), GRAPHENE_NAME(@"fee_paying_account"), new_proposal_id];
+            }else{
+                desc = [NSString stringWithFormat:NSLocalizedString(@"kOpDesc_proposal_create", @"%@ 创建提案。"), GRAPHENE_NAME(@"fee_paying_account")];
+            }
         }
             break;
         case ebo_proposal_update:
@@ -1178,15 +1426,114 @@ NSString* gSmallDataDecode(NSString* str, NSString* key)
         case ebo_asset_claim_fees:
         {
             name = NSLocalizedString(@"kOpType_asset_claim_fees", @"提取资产手续费");
-            desc = NSLocalizedString(@"kOpDesc_asset_claim_fees", @"提取资产手续费。");
+            desc = [NSString stringWithFormat:NSLocalizedString(@"kOpDesc_asset_claim_fees", @"%@ 提取 %@ 资产手续费。"),
+                    GRAPHENE_NAME(@"issuer"),
+                    GRAPHENE_ASSET_N(@"amount_to_claim")];
+        }
+            break;
+        case ebo_fba_distribute:
+        {
+            name = NSLocalizedString(@"kOpType_fba_distribute", @"FBA分发");
+            desc = NSLocalizedString(@"kOpDesc_fba_distribute", @"FBA分发。");
             //  TODO:待细化
+        }
+            break;
+        case ebo_bid_collateral:
+        {
+            name = NSLocalizedString(@"kOpType_bid_collateral", @"黑天鹅竞价");
+            desc = NSLocalizedString(@"kOpDesc_bid_collateral", @"黑天鹅竞价。");
+            //  TODO:待细化
+        }
+            break;
+        case ebo_execute_bid:
+        {
+            name = NSLocalizedString(@"kOpType_execute_bid", @"竞价成功");
+            desc = NSLocalizedString(@"kOpDesc_execute_bid", @"竞价成功。");
+            //  TODO:待细化
+        }
+            break;
+        case ebo_asset_claim_pool:
+        {
+            name = NSLocalizedString(@"kOpType_asset_claim_pool", @"提取资产手续费池");
+            desc = NSLocalizedString(@"kOpDesc_asset_claim_pool", @"提取手续费池资产。");
+            //  TODO:待细化
+        }
+            break;
+        case ebo_asset_update_issuer:
+        {
+            name = NSLocalizedString(@"kOpType_asset_update_issuer", @"更新资产发行账号");
+            id issuer = GRAPHENE_NAME(@"issuer");
+            id asset_to_update = GRAPHENE_ASSET_SYMBOL(@"asset_to_update");
+            id new_issuer = GRAPHENE_NAME(@"new_issuer");
+            desc = [NSString stringWithFormat:NSLocalizedString(@"kOpDesc_asset_update_issuer", @"%@ 更新 %@ 资产的所有者账号为 %@。"),
+                    issuer, asset_to_update, new_issuer];
+        }
+            break;
+        case ebo_htlc_create:
+        {
+            name = NSLocalizedString(@"kOpType_htlc_create", @"创建合约转账");
+            id from = GRAPHENE_NAME(@"from");
+            id to = GRAPHENE_NAME(@"to");
+            id str_amount = GRAPHENE_ASSET_N(@"amount");
+            
+            id new_htlc_id = [self extractNewObjectIDFromOperationResult:opresult];
+            if (new_htlc_id){
+                desc = [NSString stringWithFormat:NSLocalizedString(@"kOpDesc_htlc_create_with_id", @"%@ 准备转账 %@ 到 %@。#%@"),
+                        from, str_amount, to, new_htlc_id];
+            }else{
+                desc = [NSString stringWithFormat:NSLocalizedString(@"kOpDesc_htlc_create", @"%@ 准备转账 %@ 到 %@。"), from, str_amount, to];
+            }
+        }
+            break;
+        case ebo_htlc_redeem:
+        {
+            name = NSLocalizedString(@"kOpType_htlc_redeem", @"执行合约转账");
+            
+            NSString* hex_preimage = opdata[@"preimage"];
+            assert([OrgUtils isValidHexString:hex_preimage]);
+            
+            NSInteger hex_len = [hex_preimage length];
+            NSInteger raw_len = hex_len / 2;
+            assert(raw_len > 0);
+            
+            unsigned char raw_preimage[raw_len];
+            hex_decode((const unsigned char*)[hex_preimage UTF8String], hex_len, raw_preimage);
+            desc = [NSString stringWithFormat:NSLocalizedString(@"kOpDesc_htlc_redeem", @"%@ 使用原像 %@ 赎回HTLC。#%@"),
+                    GRAPHENE_NAME(@"redeemer"),
+                    [[NSString alloc] initWithBytes:raw_preimage length:raw_len encoding:NSUTF8StringEncoding],
+                    opdata[@"htlc_id"]];
+        }
+            break;
+        case ebo_htlc_redeemed:
+        {
+            name = NSLocalizedString(@"kOpType_htlc_redeemed", @"转账合约已执行");
+            desc = [NSString stringWithFormat:NSLocalizedString(@"kOpDesc_htlc_redeemed", @"%@ 赎回HTLC成功，%@ 转入账号 %@。#%@"),
+                    GRAPHENE_NAME(@"redeemer"),
+                    GRAPHENE_ASSET_N(@"amount"),
+                    GRAPHENE_NAME(@"to"),
+                    opdata[@"htlc_id"]];
+        }
+            break;
+        case ebo_htlc_extend:
+        {
+            name = NSLocalizedString(@"kOpType_htlc_extend", @"更新合约");
+            desc = [NSString stringWithFormat:NSLocalizedString(@"kOpDesc_htlc_extend", @"%@ 延长HTLC有效期 %@ 秒。#%@"),
+                    GRAPHENE_NAME(@"update_issuer"),
+                    opdata[@"seconds_to_add"],
+                    opdata[@"htlc_id"]];
+        }
+            break;
+        case ebo_htlc_refund:
+        {
+            name = NSLocalizedString(@"kOpType_htlc_refund", @"合约转账退款");
+            id to = GRAPHENE_NAME(@"to");
+            desc = [NSString stringWithFormat:NSLocalizedString(@"kOpDesc_htlc_refund", @"HTLC过期，资产自动退回到账号 %@。#%@"), to, opdata[@"htlc_id"]];
         }
             break;
         default:
         {
-            //  TODO:多语言
-            name = @"未知操作";
-            desc = @"未知的操作。";
+            name = NSLocalizedString(@"kOpType_unknown_op", @"未知操作");
+            desc = [NSString stringWithFormat:NSLocalizedString(@"kOpDesc_unknown_op", @"未知的操作 #%@。"), @(opcode)];
         }
             break;
     }
@@ -1196,29 +1543,198 @@ NSString* gSmallDataDecode(NSString* str, NSString* key)
     }
     
 #undef GRAPHENE_NAME
+#undef GRAPHENE_ASSET_SYMBOL
 #undef GRAPHENE_ASSET_N
     
     return @{@"name":name, @"desc":desc, @"color":color ?: theme.textColorMain};
 }
 
 /**
- *  计算抵押资产的强平触发价。
+ *  (public) 计算在爆仓时最少需要卖出的资产数量，如果没设置目标抵押率则全部卖出。如果有设置则根据目标抵押率计算。
  */
-+ (NSDecimalNumber*)calcSettlementTriggerPrice:(NSDictionary*)call_price
-                          collateral_precision:(NSInteger)collateral_precision
-                                debt_precision:(NSInteger)debt_precision
++ (NSDecimalNumber*)calcSettlementSellNumbers:(id)call_order
+                               debt_precision:(NSInteger)debt_precision
+                         collateral_precision:(NSInteger)collateral_precision
+                                   feed_price:(NSDecimalNumber*)feed_price
+                                   call_price:(NSDecimalNumber*)call_price
+                                          mcr:(NSDecimalNumber*)mcr
+                                         mssr:(NSDecimalNumber*)mssr
 {
-    NSDecimalNumber* n_callprice_base = [NSDecimalNumber decimalNumberWithMantissa:[[[call_price objectForKey:@"base"] objectForKey:@"amount"] unsignedLongLongValue]
-                                                                          exponent:-collateral_precision isNegative:NO];
-    NSDecimalNumber* n_callprice_quote = [NSDecimalNumber decimalNumberWithMantissa:[[[call_price objectForKey:@"quote"] objectForKey:@"amount"] unsignedLongLongValue]
-                                                                           exponent:-debt_precision isNegative:NO];
-    NSDecimalNumberHandler* ceilHandler = [NSDecimalNumberHandler decimalNumberHandlerWithRoundingMode:NSRoundUp
-                                                                                                 scale:debt_precision
-                                                                                      raiseOnExactness:NO
-                                                                                       raiseOnOverflow:NO
-                                                                                      raiseOnUnderflow:NO
-                                                                                   raiseOnDivideByZero:NO];
-    return [n_callprice_quote decimalNumberByDividingBy:n_callprice_base withBehavior:ceilHandler];
+    assert(call_order);
+    assert(feed_price);
+    assert(mcr);
+    assert(mssr);
+    
+    id collateral = [call_order objectForKey:@"collateral"];
+    assert(collateral);
+    id debt = [call_order objectForKey:@"debt"];
+    assert(debt);
+    
+    NSDecimalNumber* n_collateral = [NSDecimalNumber decimalNumberWithMantissa:[collateral unsignedLongLongValue]
+                                                                      exponent:-collateral_precision isNegative:NO];
+    NSDecimalNumber* n_debt = [NSDecimalNumber decimalNumberWithMantissa:[debt unsignedLongLongValue]
+                                                                exponent:-debt_precision isNegative:NO];
+    
+    NSDecimalNumberHandler* ceil_handler = [NSDecimalNumberHandler decimalNumberHandlerWithRoundingMode:NSRoundUp
+                                                                                                  scale:collateral_precision
+                                                                                       raiseOnExactness:NO
+                                                                                        raiseOnOverflow:NO
+                                                                                       raiseOnUnderflow:NO
+                                                                                    raiseOnDivideByZero:NO];
+    
+    id target_collateral_ratio = [call_order objectForKey:@"target_collateral_ratio"];
+    if (target_collateral_ratio){
+        //  卖出部分，只要抵押率回到目标抵押率即可。
+        //  =============================================================
+        //  公式：n为最低卖出数量
+        //  即 新抵押率 = 新总估值 / 新总负债
+        //
+        //  (collateral - n) * feed_price
+        //  -----------------------------  >= target_collateral_ratio
+        //  (debt - n * feed_price / mssr)
+        //
+        //  即:
+        //          target_collateral_ratio * debt - feed_price * collateral
+        //  n >= --------------------------------------------------------------
+        //          feed_price * (target_collateral_ratio / mssr - 1)
+        //  =============================================================
+        
+        id n_target_collateral_ratio = [NSDecimalNumber decimalNumberWithMantissa:[target_collateral_ratio unsignedLongLongValue]
+                                                                         exponent:-3 isNegative:NO];
+        
+        //  目标抵押率和MCR之间取最大值
+        if ([n_target_collateral_ratio compare:mcr] < 0) {
+            n_target_collateral_ratio = mcr;
+        }
+        
+        //  开始计算
+        id n1 = [[n_target_collateral_ratio decimalNumberByMultiplyingBy:n_debt] decimalNumberBySubtracting:[feed_price decimalNumberByMultiplyingBy:n_collateral]];
+        
+        id n2 = [feed_price decimalNumberByMultiplyingBy:[[n_target_collateral_ratio decimalNumberByDividingBy:mssr] decimalNumberBySubtracting:[NSDecimalNumber one]]];
+        
+        return [n1 decimalNumberByDividingBy:n2 withBehavior:ceil_handler];
+    }else{
+        //  卖出部分，覆盖所有债务即可。
+        return [n_debt decimalNumberByDividingBy:call_price withBehavior:ceil_handler];
+    }
+}
+
+/**
+ *  (public) 计算强平触发价格。
+ *  call_price = (debt × MCR) ÷ collateral
+ */
++ (NSDecimalNumber*)calcSettlementTriggerPrice:(id)debt_amount
+                                    collateral:(id)collateral_amount
+                                debt_precision:(NSInteger)debt_precision
+                          collateral_precision:(NSInteger)collateral_precision
+                                         n_mcr:(id)n_mcr
+                                       reverse:(BOOL)reverse
+                                  ceil_handler:(NSDecimalNumberHandler*)ceil_handler
+                          set_divide_precision:(BOOL)set_divide_precision
+{
+    NSDecimalNumber* n_debt = [NSDecimalNumber decimalNumberWithMantissa:[debt_amount unsignedLongLongValue]
+                                                                exponent:-debt_precision isNegative:NO];
+    NSDecimalNumber* n_collateral = [NSDecimalNumber decimalNumberWithMantissa:[collateral_amount unsignedLongLongValue]
+                                                                      exponent:-collateral_precision isNegative:NO];
+    
+    id n = [n_debt decimalNumberByMultiplyingBy:n_mcr];
+    if (set_divide_precision){
+        if (!ceil_handler){
+            ceil_handler = [NSDecimalNumberHandler decimalNumberHandlerWithRoundingMode:NSRoundUp
+                                                                                  scale:reverse ? collateral_precision : debt_precision
+                                                                       raiseOnExactness:NO
+                                                                        raiseOnOverflow:NO
+                                                                       raiseOnUnderflow:NO
+                                                                    raiseOnDivideByZero:NO];
+        }
+        if (reverse){
+            n = [[NSDecimalNumber one] decimalNumberByDividingBy:[n decimalNumberByDividingBy:n_collateral] withBehavior:ceil_handler];
+        }else{
+            n = [n decimalNumberByDividingBy:n_collateral withBehavior:ceil_handler];
+        }
+    }else{
+        if (reverse){
+            n = [[NSDecimalNumber one] decimalNumberByDividingBy:[n decimalNumberByDividingBy:n_collateral]];
+        }else{
+            n = [n decimalNumberByDividingBy:n_collateral];
+        }
+    }
+    
+    return n;
+}
+
+/**
+ *  (public) 合并普通盘口信息和爆仓单信息。
+ */
++ (NSDictionary*)mergeOrderBook:(NSDictionary*)normal_order_book settlement_data:(NSDictionary*)settlement_data
+{
+    assert(normal_order_book);
+    
+    if (settlement_data && [[settlement_data objectForKey:@"settlement_account_number"] integerValue] > 0){
+        id bidArray = [normal_order_book objectForKey:@"bids"];
+        id askArray = [normal_order_book objectForKey:@"asks"];
+        
+        id n_call_price = [settlement_data objectForKey:@"call_price_market"];
+        double f_call_price = [n_call_price doubleValue];
+        
+        NSMutableArray* new_array = [NSMutableArray array];
+        double new_amount_sum = 0;
+        BOOL inserted = NO;
+        BOOL invert = [[settlement_data objectForKey:@"invert"] boolValue];
+        
+        for (id order in invert ? bidArray : askArray) {
+            id price = [order objectForKey:@"price"];
+            id quote = [order objectForKey:@"quote"];
+            double f_price = [price doubleValue];
+            double f_quote = [quote doubleValue];
+            BOOL keep;
+            if (invert){
+                keep = f_price > f_call_price;
+            }else{
+                keep = f_price < f_call_price;
+            }
+            if (keep){
+                new_amount_sum += f_quote;
+                [new_array addObject:order];
+                continue;
+            }
+            
+            if (!inserted){
+                //  insert
+                double quote_amount;
+                double base_amount;
+                double total_sell_amount = [[settlement_data objectForKey:@"total_sell_amount"] doubleValue];
+                double total_buy_amount = [[settlement_data objectForKey:@"total_buy_amount"] doubleValue];
+                if (invert){
+                    quote_amount = total_buy_amount;
+                    base_amount = total_sell_amount;
+                }else{
+                    quote_amount = total_sell_amount;
+                    base_amount = total_buy_amount;
+                }
+                new_amount_sum += quote_amount;
+                [new_array addObject:@{@"price":@(f_call_price),
+                                       @"quote":@(quote_amount),
+                                       @"base":@(base_amount),
+                                       @"sum":@(new_amount_sum), @"iscall":@YES}];
+                inserted = YES;
+            }
+            
+            new_amount_sum += f_quote;
+            id base = [order objectForKey:@"base"];
+            [new_array addObject:@{@"price":price, @"quote":quote, @"base":base, @"sum":@(new_amount_sum)}];
+        }
+        if (invert){
+            bidArray = new_array;
+        }else{
+            askArray = new_array;
+        }
+        
+        //  返回新的 order book
+        return @{@"bids":bidArray, @"asks":askArray};
+    }else{
+        return normal_order_book;
+    }
 }
 
 /**
@@ -1254,29 +1770,35 @@ NSString* gSmallDataDecode(NSString* str, NSString* key)
         quote = item01;
     }
     
-    id n_base = [NSDecimalNumber decimalNumberWithMantissa:[[base objectForKey:@"amount"] unsignedLongLongValue]
-                                                  exponent:-base_precision isNegative:NO];
-    id n_quote = [NSDecimalNumber decimalNumberWithMantissa:[[quote objectForKey:@"amount"] unsignedLongLongValue]
-                                                   exponent:-quote_precision isNegative:NO];
-    //  REMARK：12几乎是不可能达到的精度。
-    NSInteger precision = 12;
-    if (set_divide_precision){
-        if (invert){
-            precision = base_precision;
-        }else{
-            precision = quote_precision;
-        }
+    unsigned long long i_base_amount = [[base objectForKey:@"amount"] unsignedLongLongValue];
+    unsigned long long i_quote_amount = [[quote objectForKey:@"amount"] unsignedLongLongValue];
+    //  REMARK：价格失效（比如喂价过期等情况）
+    if (i_base_amount == 0 || i_quote_amount == 0){
+        return nil;
     }
-    NSDecimalNumberHandler* handler = [NSDecimalNumberHandler decimalNumberHandlerWithRoundingMode:roundingMode
-                                                                                             scale:precision
-                                                                                  raiseOnExactness:NO
-                                                                                   raiseOnOverflow:NO
-                                                                                  raiseOnUnderflow:NO
-                                                                               raiseOnDivideByZero:NO];
-    if (invert){
-        return [n_base decimalNumberByDividingBy:n_quote withBehavior:handler];
+    
+    id n_base = [NSDecimalNumber decimalNumberWithMantissa:i_base_amount exponent:-base_precision isNegative:NO];
+    id n_quote = [NSDecimalNumber decimalNumberWithMantissa:i_quote_amount exponent:-quote_precision isNegative:NO];
+
+    if (set_divide_precision){
+        NSInteger precision = invert ? base_precision : quote_precision;
+        NSDecimalNumberHandler* handler = [NSDecimalNumberHandler decimalNumberHandlerWithRoundingMode:roundingMode
+                                                                                                 scale:precision
+                                                                                      raiseOnExactness:NO
+                                                                                       raiseOnOverflow:NO
+                                                                                      raiseOnUnderflow:NO
+                                                                                   raiseOnDivideByZero:NO];
+        if (invert){
+            return [n_base decimalNumberByDividingBy:n_quote withBehavior:handler];
+        }else{
+            return [n_quote decimalNumberByDividingBy:n_base withBehavior:handler];
+        }
     }else{
-        return [n_quote decimalNumberByDividingBy:n_base withBehavior:handler];
+        if (invert){
+            return [n_base decimalNumberByDividingBy:n_quote];
+        }else{
+            return [n_quote decimalNumberByDividingBy:n_base];
+        }
     }
 }
 
@@ -1308,16 +1830,6 @@ NSString* gSmallDataDecode(NSString* str, NSString* key)
     double value = d / fPrecision;
     
     return [self formatFloatValue:value precision:precision];
-}
-
-+ (NSString*)formatAssetString:(id)amount precision:(NSInteger)precision withceil:(BOOL)ceil
-{
-    //  unsigned long long d = [amount unsignedLongLongValue];
-    long long d = [amount longLongValue];
-    double fPrecision = pow(10, precision);
-    double value = d / fPrecision;
-    
-    return [self formatFloatValue:value precision:precision withceil:ceil];
 }
 
 + (NSString*)formatAssetString:(id)amount asset:(id)asset
@@ -1373,35 +1885,38 @@ NSString* gSmallDataDecode(NSString* str, NSString* key)
 }
 
 /**
- *  格式化浮点数，保留指定有效精度。带逗号分隔。
+ *  格式化浮点数，保留指定有效精度。可指定是否带组分割符。
  *  REMARK：格式化详细说明 https://www.jianshu.com/p/29ef372c65d3
  */
-+ (NSString*)formatFloatValue:(double)value precision:(NSInteger)precision
++ (NSString*)formatFloatValue:(double)value precision:(NSInteger)precision usesGroupingSeparator:(BOOL)usesGroupingSeparator
 {
     NSNumberFormatter* asset_formatter = [[NSNumberFormatter alloc] init];
+    [asset_formatter setLocale:[LangManager sharedLangManager].appLocale];
     [asset_formatter setNumberStyle:NSNumberFormatterDecimalStyle];
     [asset_formatter setMaximumFractionDigits:precision];
+    [asset_formatter setUsesGroupingSeparator:usesGroupingSeparator];
     return [asset_formatter stringFromNumber:@(value)];
 }
 
-/**
- *  格式化浮点数，保留指定有效精度。带逗号分隔。
- *  ceil    - 是否向上取整，否则向下取整。例子：1.332324，保留4位，向上则为：1.3324，向下则为 1.3323。
- *  REMARK：格式化详细说明 https://www.jianshu.com/p/29ef372c65d3
- */
-+ (NSString*)formatFloatValue:(double)value precision:(NSInteger)precision withceil:(BOOL)ceil
++ (NSString*)formatFloatValue:(double)value precision:(NSInteger)precision
+{
+    return [self formatFloatValue:value precision:precision usesGroupingSeparator:YES];
+}
+
++ (NSString*)formatFloatValue:(NSDecimalNumber*)value usesGroupingSeparator:(BOOL)usesGroupingSeparator
 {
     NSNumberFormatter* asset_formatter = [[NSNumberFormatter alloc] init];
+    [asset_formatter setLocale:[LangManager sharedLangManager].appLocale];
     [asset_formatter setNumberStyle:NSNumberFormatterDecimalStyle];
-    [asset_formatter setMaximumFractionDigits:precision];
-    if (ceil){
-        //  +向上
-        asset_formatter.roundingMode = NSNumberFormatterRoundCeiling;
-    }else{
-        //  -向下
-        asset_formatter.roundingMode = NSNumberFormatterRoundFloor;
-    }
-    return [asset_formatter stringFromNumber:@(value)];
+    //  REMARK：大部分NSDecimalNumber在计算的时候就已经制定了小数点精度和四舍五入模式等，故这里直接设置一个最大小数位数即可。
+    [asset_formatter setMaximumFractionDigits:14];
+    [asset_formatter setUsesGroupingSeparator:usesGroupingSeparator];
+    return [asset_formatter stringFromNumber:value];
+}
+
++ (NSString*)formatFloatValue:(NSDecimalNumber*)value
+{
+    return [self formatFloatValue:value usesGroupingSeparator:YES];
 }
 
 /**

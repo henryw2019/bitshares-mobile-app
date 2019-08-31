@@ -28,7 +28,7 @@
                 android:layout_height="40dp"
                 android:gravity="center"
                 android:layout_gravity="center|center_vertical"
-                android:text="@string/kTabNameServices"
+                android:text="@string/kTabBarNameServices"
                 style="@style/kNavigationBarTextStyle" />
 
         </FrameLayout>
@@ -93,7 +93,7 @@
                 android:textSize="16dp"
                 android:layout_weight="9"
                 android:textColor="@color/theme01.textColorMain"
-                android:text="@string/serviceMainPageTransfer"/>
+                android:text="@string/kServicesCellLabelTransfer"/>
 
             <ImageView
                 android:layout_width="0dp"
@@ -129,7 +129,7 @@
                 android:textSize="16dp"
                 android:layout_weight="9"
                 android:textColor="@color/theme01.textColorMain"
-                android:text="@string/serviceMainPageVoting"/>
+                android:text="@string/kServicesCellLabelVoting"/>
 
             <ImageView
                 android:layout_width="0dp"
@@ -165,7 +165,7 @@
                 android:textSize="16dp"
                 android:layout_weight="9"
                 android:textColor="@color/theme01.textColorMain"
-                android:text="@string/serviceMainPageAccountQuery"/>
+                android:text="@string/kServicesCellLabelAccountSearch"/>
 
             <ImageView
                 android:layout_width="0dp"
@@ -201,7 +201,7 @@
                 android:textSize="16dp"
                 android:layout_weight="9"
                 android:textColor="@color/theme01.textColorMain"
-                android:text="@string/serviceMainPageDebtRanking"/>
+                android:text="@string/kServicesCellLabelRank"/>
 
             <ImageView
                 android:layout_width="0dp"
@@ -236,7 +236,7 @@
                 android:textSize="16dp"
                 android:layout_weight="9"
                 android:textColor="@color/theme01.textColorMain"
-                android:text="@string/feedPricePageFeedDetail"/>
+                android:text="@string/kServicesCellLabelFeedPrice"/>
 
             <ImageView
                 android:layout_width="0dp"
@@ -271,7 +271,7 @@
                 android:textSize="16dp"
                 android:layout_weight="9"
                 android:textColor="@color/theme01.textColorMain"
-                android:text="@string/serviceMainPageRechargeAndWithdraw"/>
+                android:text="@string/kServicesCellLabelDepositWithdraw"/>
 
             <ImageView
                 android:layout_width="0dp"
@@ -284,6 +284,39 @@
 
         </LinearLayout>
 
+        <!-- 高级功能 -->
+        <LinearLayout
+            android:id="@+id/layout_advanced_feature_of_service"
+            android:layout_width="match_parent"
+            android:layout_height="34dp"
+            android:layout_marginTop="40dp"
+            android:orientation="horizontal">
+            <ImageView
+                android:id="@+id/img_icon_advfunction"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_gravity="center_vertical"
+                android:src="@drawable/icon_advfunction"/>
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_gravity="center_vertical"
+                android:gravity="center_vertical"
+                android:textSize="16dp"
+                android:layout_weight="9"
+                android:textColor="@color/theme01.textColorMain"
+                android:text="@string/kServicesCellLabelAdvFunction"/>
+
+            <ImageView
+                android:layout_width="0dp"
+                android:layout_height="20dp"
+                android:layout_gravity="center_vertical|right"
+                android:layout_weight="1"
+                android:foregroundGravity="right"
+                android:src="@drawable/ic_btn_right_arrow" />
+
+        </LinearLayout>
 
 
         <!-- 小游戏 TODO：未完成 -->

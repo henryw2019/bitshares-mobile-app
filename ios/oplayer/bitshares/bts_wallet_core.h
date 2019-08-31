@@ -25,6 +25,8 @@ extern "C"
     /**
      *  计算各种 hash 摘要
      */
+    extern void rmd160(const unsigned char* message, const size_t length, unsigned char digest20[]);
+    extern void sha1(const unsigned char* buffer, const size_t size, unsigned char digest20[]);
     extern void sha256(const unsigned char* buffer, const size_t size, unsigned char digest32[]);
     extern void sha512(const unsigned char* buffer, const size_t size, unsigned char digest64[]);
     
@@ -104,6 +106,13 @@ extern "C"
      */
     extern bool __bts_gen_public_key_from_b58address(const unsigned char* address, const size_t address_size,
                                                      const size_t address_prefix_size, secp256k1_pubkey* output_public);
+    
+    
+    /**
+     *  加法调整公私钥
+     */
+    extern bool __bts_privkey_tweak_add(unsigned char seckey[], const unsigned char tweak[]);
+    extern bool __bts_pubkey_tweak_add(secp256k1_pubkey* pubkey, const unsigned char tweak[]);
     
     /**
      *  保存：序列化钱包对象JSON字符串为二进制流。

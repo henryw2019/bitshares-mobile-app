@@ -56,6 +56,7 @@
 "kServicesCellLabelVoting" = "Voting";
 "kServicesCellLabelFeedPrice" = "Feed price details";
 "kServicesCellLabelDepositWithdraw" = "Deposit & Withdraw";
+"kServicesCellLabelAdvFunction" = "Advanced Features";
 
 /* 抵押排行 */
 "kVcRankCurrentFeedPrice" = "Feed price";
@@ -98,7 +99,8 @@
 "kVcDWTipsNetworkConfirmWithN" = "Your  deposit will be deposited after %@ confirmations from the network.\n";
 "kVcDWTipsFindCustomService" = "If you have any questions, please contact the gateway customer service.";
 "kVcDWErrTipsRequestDepositAddrFailed" = "Request deposits address is abnormal, please contact the gateway customer service.";
-"kVcDWErrTipsRequestDepositAddrFailed2" = "Request deposits address is abnormal, the field '%@' verification failed, please contact the gateway customer service.";
+"kVcDWErrTipsRequestDepositAddrFailed2" = "Request deposits address is abnormal, the field \"%@\" verification failed, please contact the gateway customer service.";
+"kVcDWErrTipsRequestWithdrawAddrFailed" = "Request withdraw address is abnormal, please contact the gateway customer service.";
 "kVcDWHelpTitleSupport" = "Support";
 "kVcDWHelpTitleQQ" = "QQ";
 "kVcDWHelpTitleTelegram" = "Telegram";
@@ -111,6 +113,8 @@
 "kVcDWCellMinWithdrawNumber" = "Minimum amount";
 "kVcDWCellWithdrawFee" = "Gateway fee";
 "kVcDWCellWithdrawGatewayAccount" = "Intermediate account";
+"kVcDWCellMaxWithdrawNumberOnce" = "Maximum amount";
+"kVcDWCellMaxWithdrawNumber24Hours" = "Maximum amount(24H)";
 "kVcDWCellWithdrawFinalValue" = "Actual amount";
 "kVcDWWithdrawSubmitButton" = "Withdraw now";
 "kVcDWSubmitTipsAddressCannotBeEmpty" = "The withdraw address cannot be empty.";
@@ -142,15 +146,33 @@
 "kLblTipsPasswordModeNotSupportMultiSign" = "Multi-signature and other functions only support wallet mode. Do you want to create a local wallet file for the current account?";
 "kLblTipsConvertToWalletModeDone" = "Create wallet successfully.";
 
+/* 账号信息 */
+"kAccountPageBasicInfo" = "Basic Info";
+"kAccountPageMemberInfo" = "Member Info";
+"kAccountBtnUpgradeToLifetimeMember" = "Upgrade lifetime membership";
+"kAccountMembershipStatus" = "Status";
+"kAccountMembershipMyRefCode" = "My referrer code";
+"kAccountMembershipNoRefCode" = "NONE";
+"kAccountMembershipMyRefCodeCopyOK" = "Referrer code copied";
+"kAccountUpgradeTipsMember" = "Dear Life Member, you are entitled to an 80% fee cashback.";
+"kAccountUpgradeTipsNotMember" = "Upgrade lifetime membership and enjoy an 80% fee cashback.";
+"kAccountUpgradeMemberSubmitTxFullOK" = "Upgrade lifetime membership success.";
+"kAccountUpgradeMemberSubmitTxOK" = "Upgrade lifetime membership is successful, but refreshing the interface failed, please try again later.";
+"kAccountUpgradeMemberCostAsk" = "Upgrade lifetime membership will cost %@, do you want to continue?";
+
 /* 登录&注册&备份 */
 "kLoginPageModePassword" = "Normal";
+"kLoginPageModeBrainKey" = "Brain Key";
 "kLoginPageModePrivateKey" = "Private Key";
 "kLoginPageModeWallet" = "Wallet";
 "kLoginTipsPlaceholderAccount" = "Please input bitshares account";
+"kLoginTipsPlaceholderBrainKey" = "Please enter a mnemonic, separated by spaces between each word.";
 "kLoginTipsPlaceholderTradePassword" = "Please input wallet password";
 "kLoginTipsPlaceholderActiveKey" = "Please input active private key";
 "kLoginTipsPlaceholderConfirmPassword" =  "Please confirm password";
 "kLoginTipsPlaceholderWalletPassword" = "Please input wallet passwrod";
+"kLoginTipsPlaceholderInputRefCode" = "Referrer code (optional)";
+"kLoginCellLabelRefCode" = "Referrer";
 "kLoginTipsLoginOK" = "Login successful.";
 "kLoginTipsRegFullOK" = "Register successful.";
 "kLoginRegTipsAccountFormat" = "The account number consists of lowercase letters, numbers, -, ., and must end with a letter beginning with a letter or number.";
@@ -190,7 +212,8 @@
 "kLoginSubmitTipsAccountPasswordPermissionNotEnough" = "The password has insufficient permissions.";
 "kLoginSubmitTipsInvalidPrivateKey" = "The private key is invalid. Please re-enter.";
 "kLoginSubmitTipsPrivateKeyIncorrect" = "The private key is incorrect. Please re-enter.";
-"kLoginSubmitTipsPrivateKeyPermissionNotEnough" = "The private key has insufficient permissions.";
+"kLoginSubmitTipsBrainKeyIncorrect" = "The brain key is incorrect. Please re-enter.";
+"kLoginSubmitTipsPermissionNotEnoughAndCannotBeImported" = "Insufficient active permission, can not be imported.";
 "kLoginSubmitTipsAccountFmtIncorrect" = "The account format is incorrect. Please re-enter.";
 "kLoginRegTipsRegOK" = "Registration is successful, but the refresh fails. You can log in directly later.";
 "kLoginTipsWalletModeRegOK" = "The registration is successful, but query account data failed. Please restart the app.";
@@ -200,8 +223,8 @@
 "kLoginCellWalletPassword" = "W-pwd";
 "kLoginCellActivePrivateKey" = "key ";
 "kLoginCellConfirmPassword" = "Confirm ";
-"kLoginRegTipsAccountMode" = "Tip: The password format can be viewed by clicking on the question mark. \nNote: BTS++ is a decentralized blockchain application. Once the password is lost or forgotten, it will not be retrieved. Please keep it in a safe place.";
-"kLoginRegTipsWalletMode" = "Tip: The password format can be viewed by clicking on the question mark. \nNote: BTS++ is a decentralized blockchain application. If the wallet file or password is lost or forgotten, it is not possible to retrieve it. It is recommended that you back up the wallet file after registration and keep it in a safe place. \n※ Wallet mode is recommended.";
+"kLoginRegTipsAccountMode" = "Tip: The password format can be viewed by clicking on the question mark. \nNote: Bitshares is a decentralized blockchain application. Once the password is lost or forgotten, it will not be retrieved. Please keep it in a safe place.";
+"kLoginRegTipsWalletMode" = "Tip: The password format can be viewed by clicking on the question mark. \nNote: Bitshares is a decentralized blockchain application. If the wallet file or password is lost or forgotten, it is not possible to retrieve it. It is recommended that you back up the wallet file after registration and keep it in a safe place. \n※ Wallet mode is recommended.";
 "kLoginFaucetTipsInvalidArguments" = "Invalid argument.";
 "kLoginFaucetTipsInvalidAccountFmt" = "The account format is incorrect.";
 "kLoginFaucetTipsAccountAlreadyExist" = "The account already exists.";
@@ -225,14 +248,20 @@
 "kAccTipsLogout" = "Logging out will delete the account information from the device, please confirm that you have made a backup. Do you want to continue logging out?";
 
 /* 提案界面 */
-"kProposalTipsAskMissingActive" = "You don't have active permissions for account %@, do you want to create a proposal?";
-"kProposalTipsAskMissingOwner" = "You don't have owner permissions for account %@, do you want to create a proposal?";
+"kProposalTipsAskMissingActive" = "You don\'t have active permissions for account %@, do you want to create a proposal?";
+"kProposalTipsAskMissingOwner" = "You don\'t have owner permissions for account %@, do you want to create a proposal?";
 "kProposalTipsSelectFeePayingAccount" = "Please select the proposal creator";
 "kProposalLabelCellProposalCreator" = "Proposal creator";
+"kProposalLabelApprovePeriod" = "Approval period";
+"kProposalLabelReviewPeriod" = "Review period";
+"kProposalLabel1Days" = "%@ day";
+"kProposalLabelNDays" = "%@ days";
+"kProposalLabelNoReviewPeriod" = "No review period";
 "kProposalSubmitTipsSelectCreator" = "Please select a proposal creator account.";
 "kProposalSubmitTipTxOK" = "The proposal was created successfully.";
 "kProposalBtnSubmit" = "Ok";
 "kProposalTipsNoAnyProposals" = "No proposal";
+"kProposalSubmitTipsBlockedApprovedForBlackList" = "Dangerous account %@, the system has blocked this operation for your account and financial security.";
 "kProposalSubmitTipsInReview" = "The proposal is in review. cannot add approval.";
 "kProposalSubmitTipsNoPermissionApprove" = "You do not have any permissions to perform an approval operation.";
 "kProposalSubmitTipsYouAlreadyApproved" = "You have already approved.";
@@ -266,6 +295,8 @@
 /* 资产界面 */
 "kVcAssetPageAsset" = "Assets";
 "kVcAssetPageActivity" = "Activities";
+"kVcAssetPageHTLC" = "HTLC";
+"kVcAssetPageVestingBalance" = "Vesting";
 "kVcAssetTotalValue" = "Estimated Total Value(%@)";
 "kVcAssetBtnTransfer" = "Transfer";
 "kVcAssetBtnTrade" = "Trade";
@@ -319,7 +350,6 @@
 "kVestingTipsStartClaim" = "The vesting balance can only be withdrawn after %@.";
 "kVestingTipsAvailableZero" = "The vesting numbers is ZERO, please wait.";
 "kVestingTipTxVestingBalanceWithdrawFullOK" = "The vesting balance %@ was successfully withdraw.";
-"kVestingCellBalanceTitle" = "Balance";
 "kVestingCellTotal" = "Total";
 "kVestingCellVesting" = "Vesting";
 "kVestingCellPeriod" = "Period";
@@ -328,6 +358,12 @@
 "kVestingCellPeriodMin" = "%@ mins";
 "kVestingCellPeriodHour" = "%@ hours";
 "kVestingCellPeriodDay" = "%@ days";
+"kVestingCellPeriodInstant" = "instant";
+"kVestingCellNameWorkerFunds" = "Worker proposal funds";
+"kVestingCellNameWitnessFunds" = "Witness funds";
+"kVestingCellNameCashbackFunds" = "Lifetime membership fee cashback";
+"kVestingCellNameMarketFeeSharing" = "Market fee sharing";
+"kVestingCellNameCustomVBO" = "Custom vesting balance";
 
 /* K线界面各种字符串 */
 "kLabelHeaderFeedPrice" = "Feed price";
@@ -343,6 +379,9 @@
 "kLabelEkdpt4hour" = "4hour";
 "kLabelEkdpt1day" = "1day";
 "kLabelEkdpt1week" = "1week";
+"kLabelEkdptMoreSuffix" = "◢";
+"kLabelEkdptBtnMore" = "More◢";
+"kLabelEkdptBtnIndex" = "Index";
 "kLabelNODATA" = "NO DATA";
 "kLabelKLineDate" = "Date";
 "kLabelKLineOpen" = "Open";
@@ -353,11 +392,21 @@
 "kLabelKLineChangePercent" = "Change%";
 "kLabelKLineVol" = "Vol";
 "kLabelKLinePrice" = "Price";
+"kLabelKLineTotalAmount" = "Total";
+"kLabelKLineAvgPrice" = "AvgPrice";
 "kLabelBtnDepth" = "Depth";
 "kLabelBtnMarketTrades" = "Market Trades";
 "kLabelDepthSideBuy" = "Buy";
 "kLabelDepthSideSell" = "Sell";
 "kLabelTradeHisNdayAgo" = "%d days ago";
+"kKlineIndexCellMain" = "Main";
+"kKlineIndexCellSub" = "Sub";
+"kKlineIndexCellHide" = "NONE";
+"kKlineIndexCellBollN" = "Bollinger Bands Length";
+"kKlineIndexCellBollP" = "Bollinger Bands Mult";
+"kKlineIndexCellMacdS" = "MACD Fast Length";
+"kKlineIndexCellMacdL" = "MACD Slow Length";
+"kKlineIndexCellMacdM" = "MACD Signal Length";
 
 /* 交易界面各种字符串 */
 "kLabelTitleBuy" = "BUY";
@@ -376,6 +425,7 @@
 "kPlaceHolderBuyAmount" = "Amount";
 "kPlaceHolderSellPrice" = "Price";
 "kPlaceHolderSellAmount" = "Amount";
+"kLabelMarketFee" = "Market fee %@";
 "kTailerBtnBid1" = "Bid1";
 "kTailerBtnAsk1" = "Ask1";
 "kLableBuyPrice" = "Price ";
@@ -424,6 +474,65 @@
 "kVcTransferTipSelectToAccount" = "Please select target account";
 "kVcTransferTipSelectAsset" = "Please select the asset to transfer";
 
+/* HTLC合约 */
+"kVcHtlcEntryFromPreimage" = "Create HTLC (by preimage)";
+"kVcHtlcEntryFromHashcode" = "Create HTLC (by hashcode)";
+"kVcHtlcMenuPassiveCreate" = "Passive deployment contract";
+"kVcHtlcMenuProactivelyCreate" = "Proactively create contracts";
+"kVcHtlcCellTitlePreimage" = "Preimage";
+"kVcHtlcCellTitleAdvSwitch" = "More Settings";
+"kVcHtlcCellTitleHashMethod" = "Hash Type";
+"kVcHtlcCellTitleClaimPeriod" = "Expiry";
+"kVcHtlcCellTitlePreimageHash" = "Hash";
+"kVcHtlcCellTitlePreimageLength" = "Preimage Length";
+"kVcHtlcCellValueNDayFmt" = "%@ days";
+"kVcHtlcCellValueNHourFmt" = "%@ hours";
+"kVcHtlcPlaceholderInputPreimage" = "input the preimage";
+"kVcHtlcPlaceholderInputPreimageHash" = "hash value of the preimage";
+"kVcHtlcPlaceholderInputPreimageLength" = "length of the preimage";
+"kVcHtlcPlaceholderInputHashType" = "Please select hash type";
+"kVcHtlcPlaceholderInputExpire" = "Please select the expiry";
+"kVcHtlcTailerBtnCopy" = "Copy";
+"kVcHtlcTailerBtnPaste" = "Paste";
+"kVcHtlcSubmitBtn01" = "Create";
+"kVcHtlcTipsPreimageCopied" = "The preimage has been copied: %@";
+"kVcHtlcTipsPreimageForm" = "The preimage format is 20 characters or more and must contain both uppercase letters and numbers.";
+"kVcHtlcTipsInputPreimageHash" = "Please enter the preimage hash value.";
+"kVcHtlcTipsInputValidPreimageHash" = "Please enter a valid preimage hash value.";
+"kVcHtlcTipsExpireIsTooShort" = "Near the expiration date of Contract A, there is a security risk and Contract B cannot be created. Please contact the other party to extend the contract expiry.";
+"kVcHtlcMessageCreateFromPreimage" = "Please confirm that the \"Preimage\" has been backed up. If the preimage is lost, it only can be automatically unlocked after the contract expires. Do you want to continue creating contracts?";
+"kVcHtlcMessageCreateFromHtlcObject" = "It is recommended that \"Expiry\" must be \"less than\" the expiry of the other party's contract for more than 2 days, otherwise it may cause asset loss. Do you want to continue creating contracts?";
+"kVcHtlcMessageCreateFromHashHavePreimage" = "Proactively create a contract, please back up the \"preimage\". If the preimage is lost, it only can be automatically unlocked after the contract expires. Do you want to continue creating contracts?";
+"kVcHtlcMessageCreateFromHashNoPreimage" = "Passive deployment contract please carefully confirm that the other party has deployed the same contract and carefully check the various parameters. \n\n※ Note ※\n1. the preimage hash and the preimage length must match the other party perfectly. \n2. It is recommended that \"Expiry\" must be \"less than\" the expiry of the other party's contract for more than 2 days, otherwise it may cause asset loss. Do you want to continue creating contracts?";
+"kVcHtlcMessageTipsTitle" = "Risk Warning";
+"kVcHtlcSubmitTipsFullOK" = "The HTLC was created successfully, view the HTLC details on the \"My Balance\".";
+"kVcHtlcSubmitTipsOK" = "The HTLC was created successfully, but the refresh interface failed. You can view the HTLC details on the \"My Balance\".";
+"kVcHtlcNoAnyObjects" = "No HTLC objects";
+"kVcHtlcListCellFrom" = "From ";
+"kVcHtlcListCellTo" = "To ";
+"kVcHtlcListTransferDir" = "Direction ";
+"kVcHtlcListTransferDirPayment" = "Lose";
+"kVcHtlcListTransferDirIncome" = "Gain";
+"kVcHtlcListTransferAmount" = "Amount ";
+"kVcHtlcListPreimageLength" = "Preimage length ";
+"kVcHtlcListHashType" = "Hash type ";
+"kVcHtlcListHashTypeValueUnknown" = "Unknown type %@";
+"kVcHtlcListHashValue" = "Preimage hash ";
+"kVcHtlcListBtnExtend" = "Extend expiry";
+"kVcHtlcListBtnRedeem" = "Redeem";
+"kVcHtlcListBtnCreate" = "Deploy";
+"kVcHtlcListTipsErrorMissParams" = "The HTLC related parameters committees have not been configured, please try again later.";
+"kVcHtlcListTipsErrorMaxExpire" = "It has reached the maximum expiry and cannot be extended any longer.";
+"kVcHtlcListTipsSelectExtendDays" = "Please choose to extend days";
+"kVcHtlcListTipsExtendConfirm" = "Extend the expiry %@ days and do not reduce it after the extension. Whether to continue?";
+"kVcHtlcListTipsInputValidPreimage" = "Please enter valid preimage.";
+"kVcHtlcListAskTitleRedeem" = "Redeem HTLC";
+"kVcHtlcListAskPlaceholderRedeem" = "preimage of the HTLC";
+"kVcHtlcListTipsRedeemOK" = "Redeem the HTLC %@ successfully.";
+"kVcHtlcListTipsExtendOK" = "Extend the HTLC %@ expiry successfully.";
+"kVcHtlcListExtendNDayFmt" = "%@ days";
+"kVcHtlcListCopyPreimageHashOK" = "The preimage hash has been copied: %@";
+
 /* 确认界面 */
 "kVcConfirmTipFrom" = "From";
 "kVcConfirmTipTo" = "To";
@@ -438,20 +547,17 @@
 "kLabelVotingCommittees" = "Committees";
 "kLabelVotingWitnesses" = "Witnesses";
 "kLabelVotingWorkers" = "Workers";
-"kLabelVotingActiveCommittees" = "Active committees";
-"kLabelVotingStandbyCommittees" = "Candidate committees";
-"kLabelVotingActiveWitnesses" = "Active witnesses";
-"kLabelVotingStandbyWitnesses" = "Candidate witnesses";
-"kLabelVotingExpiredWP" = "Expired worker";
-"kLabelVotingNotExpiredWP" = "Worker proposal";
-"kLabelVotingActiveWP" = "Active worker";
-"kLabelVotingInactiveWP" = "Inactive worker";
+"kLabelVotingActiveCommittees" = "Active committees(%@)";
+"kLabelVotingStandbyCommittees" = "Candidate committees(%@)";
+"kLabelVotingActiveWitnesses" = "Active witnesses(%@)";
+"kLabelVotingStandbyWitnesses" = "Candidate witnesses(%@)";
+"kLabelVotingExpiredWP" = "Expired worker(%@)";
+"kLabelVotingNotExpiredWP" = "Worker proposal(%@)";
+"kLabelVotingActiveWP" = "Active worker(%@)";
+"kLabelVotingInactiveWP" = "Inactive worker(%@)";
 "kLabelVotingTotalBudget" = "Total budget ";
 "kLabelVotingWPPassVotes" = "Minimum votes ";
 "kLabelVotingNoBudget" = "No budget";
-"kLabelVotingCommitteesN" = "";
-"kLabelVotingWitnessesN" = "";
-"kLabelVotingWorkersN" = "";
 "kVcVoteBtnReset" = "Reset";
 "kVcVoteBtnSubmitProxy" = "Submit";
 "kVcVoteBtnCancelProxy" = "Cancel proxy";
@@ -471,6 +577,7 @@
 "kVcVoteTipTxOK" = "%@ successfully, but the refresh failed. Please try again later.";
 "kVcVoteCellTotalVotes" = "Votes ";
 "kVcVoteCellMissed" = "Missed ";
+"kVcVoteCellWorkerID" = "ID ";
 "kVcVoteCellCreator" = "Creator ";
 "kVcVoteCellDailyPay" = "Daily budget ";
 "kVcVoteCellWPDatePeriod" = "Date ";
@@ -480,6 +587,7 @@
 "kVcVoteCellWPBurn" = "burn";
 
 /* 设置界面 */
+"setting_language" = "Language";
 "setting_currency" = "Currency";
 "kSettingCurrencyNameCNY" = "Chinese Yuan";
 "kSettingCurrencyNameUSD" = "US Dollar";
@@ -505,6 +613,7 @@
 "kVcTitleCustomPairs" = "Custom pairs";
 "kVcTitleSelectProxy" = "Select proxy";
 "kVcTitleTheme" = "Theme";
+"kVcTitleLanguage" = "Language";
 "kVcTitleOrderManagement" = "Order management";
 "kVcTitleMyBalance" = "My balance";
 "kVcTitleAgreement" = "Agreement";
@@ -514,6 +623,8 @@
 "kVcTitleWhatIsTradePassowrd" = "What is trading password?";
 "kVcTitleWhatIsActivePrivateKey" = "What is active private key?";
 "kVcTitleWhatIsGatewayAssets" = "What is gateway assets?";
+"kVcTitleWhatIsGateway" = "What is a gateway?";
+"kVcTitleWhatIsRefcode" = "What is a referrer code?";
 "kVcTitleFAQ" = "FAQ";
 "kVcTitleVoting" = "Voting";
 "kVcTitleMyProposal" = "Pending proposal";
@@ -524,8 +635,12 @@
 "kVcTitleProposalAddApprove" = "Add proposal approval";
 "kVcTitleProposalRemoveApprove" = "Remove proposal approval";
 "kVcTitleDepositWithdraw" = "Deposit & Withdraw";
+"kVcTitleDepositAdvFunction" = "Advanced Features";
 "kVcTitleDeposit" = "%@ deposits";
 "kVcTitleWithdraw" = "%@ withdrawls";
+"kVcTitleKlineIndexSetting" = "K-Line Index Setting";
+"kVcTitleCreateHTLC" = "Create HTLC";
+"kVcTitleCreateSubHTLC" = "Deploy sub-contracts";
 
 /* 钱包管理 */
 "kWalletUnlockFailedUnknowMode" = "Unlock failed, unknown account mode: %@.";
@@ -600,6 +715,17 @@
 "kOpType_transfer_from_blind" = "Transfer From Blind";
 "kOpType_asset_settle_cancel" = "Cancel Settlement";
 "kOpType_asset_claim_fees" = "Claim Asset Fees";
+"kOpType_fba_distribute" = "FBA Distribute";
+"kOpType_bid_collateral" = "Bid Collateral";
+"kOpType_execute_bid" = "Bid Collateral Success";
+"kOpType_asset_claim_pool" = "Claim Asset Pool";
+"kOpType_asset_update_issuer" = "Update Asset Issuer";
+"kOpType_htlc_create" = "Create HTLC";
+"kOpType_htlc_redeem" = "Rredeem HTLC";
+"kOpType_htlc_redeemed" = "HTLC Redeemed";
+"kOpType_htlc_extend" = "HTLC Extend";
+"kOpType_htlc_refund" = "HTLC Refund";
+"kOpType_unknown_op" = "Unknown";
 
 /* 交易OP详细描述 */
 "kOpDesc_transfer" = "%@ transfer %@ to %@.";
@@ -611,23 +737,27 @@
 "kOpDesc_fill_order_buy" = "%1$@ buys %3$@ at %2$@.";
 "kOpDesc_account_create" = "%@ create an account %@.";
 "kOpDesc_account_update" = "%@ update account.";
-"kOpDesc_account_whitelist" = "update the whitelist.";
+"kOpDesc_account_whitelist_white" = "%@ add %@ to the whitelist.";
+"kOpDesc_account_whitelist_black" = "%@ add %@ to the blacklist.";
+"kOpDesc_account_whitelist_both" = "%@ add %@ to the whitelist and blacklist.";
+"kOpDesc_account_whitelist_none" = "%@ remove %@ from the black and white list.";
 "kOpDesc_account_upgrade" = "%@ upgrade account.";
 "kOpDesc_account_upgrade_member" = "%@ upgrade lifetime membership.";
 "kOpDesc_account_transfer" = "transfer account.";
 "kOpDesc_asset_create" = "%@ create asset %@.";
-"kOpDesc_asset_update" = "update assets.";
+"kOpDesc_asset_update" = "update assets %@.";
 "kOpDesc_asset_update_bitasset" = "update bitasset.";
-"kOpDesc_asset_update_feed_producers" = "update feed publisher.";
+"kOpDesc_asset_update_feed_producers" = "%@ update feed publisher.";
 "kOpDesc_asset_issue" = "issue assets.";
-"kOpDesc_asset_reserve" = "reserve assets.";
+"kOpDesc_asset_reserve" = "%@ reserves %@.";
 "kOpDesc_asset_fund_fee_pool" = "fund the fee pool.";
-"kOpDesc_asset_settle" = "settle assets.";
+"kOpDesc_asset_settle" = "%@ settles %@.";
 "kOpDesc_asset_global_settle" = "global settle assets.";
 "kOpDesc_asset_publish_feed" = "publish feed price.";
 "kOpDesc_witness_create" = "create a witness.";
 "kOpDesc_witness_update" = "update the witness.";
-"kOpDesc_proposal_create" = "create proposal.";
+"kOpDesc_proposal_create_with_id" = "%@ create proposal. #%@";
+"kOpDesc_proposal_create" = "%@ create proposal.";
 "kOpDesc_proposal_update" = "%@ update proposal. #%@";
 "kOpDesc_proposal_delete" = "delete proposal.";
 "kOpDesc_withdraw_permission_create" = "create a permission withdraw.";
@@ -648,18 +778,44 @@
 "kOpDesc_blind_transfer" = "blind transfer.";
 "kOpDesc_transfer_from_blind" = "transfer asset from a blind account.";
 "kOpDesc_asset_settle_cancel" = "cancel the settlement.";
-"kOpDesc_asset_claim_fees" = "claim the asset fees.";
+"kOpDesc_asset_claim_fees" = "%@ claims %@ asset fees.";
+"kOpDesc_fba_distribute" = "FBA distribute.";
+"kOpDesc_bid_collateral" = "bid collateral.";
+"kOpDesc_execute_bid" = "bidding collateral success.";
+"kOpDesc_asset_claim_pool" = "claim the asset pool.";
+"kOpDesc_asset_update_issuer" = "%@ update %@ asset owner to %@.";
+"kOpDesc_htlc_create_with_id" = "%@ ready to transfer %@ to %@. #%@";
+"kOpDesc_htlc_create" = "%@ ready to transfer %@ to %@.";
+"kOpDesc_htlc_redeem" = "%@ redeem HTLC with preimage %@. #%@";
+"kOpDesc_htlc_redeemed" = "%@ redeem HTLC successfully. %@ transferred to %@. #%@";
+"kOpDesc_htlc_extend" = "%@ extended HTLC expiration time %@ seconds. #%@";
+"kOpDesc_htlc_refund" = "HTLC expires. assets are automatically returned to %@. #%@";
+"kOpDesc_unknown_op" = "unknown operation #%@.";
+
+/* 交易OP细化 */
+"kOpDetailFlagDangerous" = "DANGEROUS";
+"kOpDetailPermissionOwner" = "Owner Permission";
+"kOpDetailPermissionActive" = "Active Permission";
+"kOpDetailPermissionMemo" = "Memo Permission";
+"kOpDetailSubTitleVoteTargeter" = "Voting target";
+"kOpDetailSubTitleOperate" = "Action";
+"kOpDetailSubTitleNewWeightOrThreshold" = "New threshold / weight";
+"kOpDetailSubTitleChangeValue" = "Change";
+"kOpDetailSubOpAdd" = "Add";
+"kOpDetailSubOpDelete" = "Delete";
+"kOpDetailSubPrefixThreshold" = "Pass threshold";
+"kOpDetailSubPrefixCommittee" = "Committee";
+"kOpDetailSubPrefixWitness" = "Witness";
+"kOpDetailSubPrefixProxy" = "Proxy";
 
 /* 通用字符串 */
+"kLangKeyZhSimple" = "简体中文 / Simplified Chinese";
+"kLangKeyEn" = "English";
+"kLangKeyJa" = "日本語 / Japanese";
 "skip" = "Skip";
-"kAppName" = "BTS++";
+"kAppName" = "Bitshares";
 "kAccount" = "Account";
-"kAboutMainDesc" ="BTS++ is a decentralized exchange (DEX) product based on Bitshares graphene technology, developed from the product experience and developed with native technology comparable to the first-class centralized exchange. ";
-"kAboutContactUs" = "Contact us";
-"kAboutWechat" = "Wechat: %@";
-"kAboutEmail" = "E-mail: %@";
-"kAboutTelegram" = "Telegram: %@";
-"kAboutWebsite" = "Website: %@";
+"kAboutMainDesc" ="\nBitshares Mobile App is a decentralized exchange (DEX) product based on Bitshares graphene technology, developed from the product experience and developed with native technology comparable to the first-class centralized exchange. \n\nContact us\nWeChat: bts-pp\nE-mail: contact@btsplusplus.com\nTelegram: https://t.me/btsplusplus\nWebsite: https://btspp.io\n";
 "kAboutChannelAppStore" = "(AppStore Version & Channel %@)";
 "kAboutChannelWebsite" = "(Website Version & Channel %@)";
 "kAboutDebugVersion" = "(Debug Version)";
@@ -680,8 +836,8 @@
 "kSearchTipsMyCustomPairs" = "My pairs(%@)";
 "kSearchTipsMaxCustomParisNumber" = "You can only customize up to %@ pairs.";
 "kSearchTipsForbidden" = "Frozen";
-"kMsgUsenameCannotBeNull" = "Account can't be empty.";
-"kMsgPasswordCannotBeNull" = "Password can't be empty.";
+"kMsgUsenameCannotBeNull" = "Account can\'t be empty.";
+"kMsgPasswordCannotBeNull" = "Password can\'t be empty.";
 "kTipsAddFavDelete" = "Successfully delete";
 "kTipsAddFavSuccess" = "Successfully add";
 "kTipsUnfollowed" = "Unfollowed";
@@ -704,13 +860,15 @@
 "search_result" = "Search result";
 "other" = "Other";
 "kBtnClose" = "Close";
-"upgrade now" = "Update";
-"remind me latter" = "Remind later";
+"kUpgradeNow" = "Update";
+"kRemindMeLatter" = "Remind later";
 "tip_network_error" = "Network error, please try again later.";
+"kAppFirstInitNetworkFailed" = "The APP network init failed. please follow the steps below: \n1. If you are starting up for the first time, please allow the application to use wireless data. \n2. other cases. please check the device network.";
+"kAppBtnReInit" = "Try again";
 "Cancel" = "Cancel";
 "faq" = "FAQ";
 "tip_click_to_login" = "Click here to login";
-"account management" = "Account management";
+"kAccountManagement" = "Account management";
 "tip_member_expired" = "Member: Expired";
 "tip_member_timeleft_fmt" = "Member:%@ days left";
 "unlockTipsPleaseInputAccountPassword" = "Please input account password";
@@ -723,7 +881,35 @@
 /* 部分石墨烯错误信息 */
 "kGPErrorAccountNotExist" = "Account does not exist.";
 "kGPErrorInsufficientBalance" = "Insufficient balance.";
+"kGPErrorRedeemInvalidPreimage" = "The preimage is incorrect.";
 
 /* 特殊用途字符串KEY */
 "serverWssLangKey" = "en";
 "appDepositWithdrawDefaultGateway" = "RuDEX";
+
+/* Android专有字符串 */
+"action_settings" = "Settings";
+"title_home" = "Home";
+"title_dashboard" = "Dashboard";
+"title_notifications" = "Notifications";
+"webserverUploadPage" = "upload-en";
+"webserverDownloadPage" = "download-en";
+"nameSaoyisao" = "Scan QR code";
+"launchTipVersionKey" = "newVersionInfo";
+"launchTipDefaultNewVersion" = "Discover the new version v%@, go to the update.";
+"kKlineIndexSelectMainIndex" = "Please select the MAIN index.";
+"kKlineIndexSelectSubIndex" = "Please select the SUB index.";
+"serviceMainPageGame" = "Game";
+"registerLoginPageReceiveFiles0" = "Received documents(0)";
+"registerLoginPagePleaseInputWalletPws" = "Please enter your wallet password";
+"registerLoginPageInvalidRequesting" = "Invalid request";
+"registerLoginPageUploadSuccessPleaseContinueForPhone" = "The upload is successful, please continue to complete the import operation on your phone.";
+"registerLoginPageServerInternalError" = "Server internal error";
+"registerLoginPageTipForDeleteFileForThisPhone" = "Delete the file %@ from the device, OK?";
+"registerLoginPageClickWrong" = "cancel";
+"registerLoginWebServerErrorIp" = "Get the phone address is abnormal, please try again later.";
+"registerLoginWebServerErrorInit" = "Initialization failed, please restart the app and try again.";
+"registerLoginTipBackupError" = "Failed to export the wallet, please try again later.";
+"myAssetsPageUnknowOperationContent" = "Unknown operation content";
+"kWalletMemuTipsPleaseSelectCellAction" = "Please select the action to perform";
+"kWalletMenuTipsPleaseSelectImportType" = "Please select the type of account to import";

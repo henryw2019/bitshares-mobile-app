@@ -119,6 +119,7 @@
  */
 - (NSDictionary*)getObjectGlobalProperties;
 - (void)updateObjectGlobalProperties:(NSDictionary*)gp;
+- (WsPromise*)queryGlobalProperties;
 
 /**
  *  (public) 获取指定分组信息
@@ -130,6 +131,7 @@
  */
 - (id)getAssetBySymbol:(NSString*)symbol;
 - (id)getChainObjectByID:(NSString*)oid;
+- (id)getVoteInfoByVoteID:(NSString*)vote_id;
 - (id)getAccountByName:(NSString*)name;
 - (id)getBlockHeaderInfoByBlockNumber:(id)block_number;
 - (id)getFullAccountDataFromCache:(id)account_id_or_name;
@@ -149,12 +151,17 @@
  *  (public) 获取手续费对象
  */
 - (NSDictionary*)getFeeItem:(EBitsharesOperations)op_code full_account_data:(NSDictionary*)full_account_data;
+- (NSDictionary*)getFeeItem:(EBitsharesOperations)op_code full_account_data:(NSDictionary*)full_account_data extra_balance:(NSDictionary*)extra_balance;
 
 /**
  *  (public) 评估指定交易操作所需要的手续费信息
  */
-- (NSDictionary*)estimateFeeObject:(EBitsharesOperations)op full_account_data:(NSDictionary*)full_account_data;
-- (NSDictionary*)estimateFeeObject:(EBitsharesOperations)op balances:(NSArray*)balance_list;
+- (NSDictionary*)estimateFeeObject:(EBitsharesOperations)op
+                 full_account_data:(NSDictionary*)full_account_data
+                     extra_balance:(NSDictionary*)extra_balance;
+
+- (NSDictionary*)estimateFeeObject:(EBitsharesOperations)op
+                          balances:(NSArray*)balance_list;
 
 #pragma mark- init graphene network
 /**
@@ -186,10 +193,28 @@
  *  (public) 查询手续费资产的详细信息（包括动态信息）
  */
 - (WsPromise*)queryFeeAssetListDynamicInfo;
-
+/**
+ *  (public) 查询智能资产信息（非智能资产返回nil）
+ */
+- (WsPromise*)queryShortBackingAssetInfos:(NSArray*)asset_id_list;
+/**
+ *  (public) 查询所有投票ID信息
+ */
+- (WsPromise*)queryAllVoteIds:(NSArray*)vote_id_array;
 - (WsPromise*)queryAllAccountsInfo:(NSArray*)account_id_array;
 - (WsPromise*)queryAllAssetsInfo:(NSArray*)asset_id_array;
+/**
+ *  (public) 查询对象信息（优先查询缓存）
+ */
 - (WsPromise*)queryAllGrapheneObjects:(NSArray*)id_array;
+/**
+ *  (public) 查询对象信息（全部跳过缓存）
+ */
+- (WsPromise*)queryAllGrapheneObjectsSkipCache:(NSArray*)id_array;
+/**
+ *  (public) 查询对象信息（部分跳过缓存）
+ */
+- (WsPromise*)queryAllGrapheneObjects:(NSArray*)id_array skipCacheIdHash:(NSDictionary*)skipCacheIdHash;
 
 /**
  *  (public) 查询所有 block_num 的 header 信息，返回 Hash。 格式：{对象ID=>对象信息, ...}
@@ -204,6 +229,11 @@
  *  (public) 查询最近成交记录
  */
 - (WsPromise*)queryFillOrderHistory:(TradingPair*)tradingPair number:(NSInteger)number;
+
+/**
+ *  (public) 查询爆仓单
+ */
+- (WsPromise*)queryCallOrders:(TradingPair*)tradingPair number:(NSInteger)number;
 
 /**
  *  (public) 查询限价单

@@ -1,6 +1,35 @@
 package bitshares
 
 /**
+ * BTS石墨烯私钥类型定义
+ * 参考：https://github.com/satoshilabs/slips/issues/49。
+ */
+enum class EHDBitsharesPermissionType(val value: Int) {
+    ehdbpt_owner(0x0),                      //  所有者权限
+    ehdbpt_active(0x1),                     //  资金权限
+    ehdbpt_memo(0x2),                       //  备注权限
+}
+
+/**
+ *  石墨烯账号黑白名单标记
+ */
+enum class EBitsharesWhiteListFlag(val value: Int) {
+    ebwlf_no_listing(0x0),                                          //  无
+    ebwlf_white_listed(0x1),                                        //  在白名单，不在黑名单中。
+    ebwlf_black_listed(0x2),                                        //  在黑名单，不在白名单中。
+    ebwlf_white_and_black_listed(ebwlf_white_listed.value.or(ebwlf_black_listed.value)) //  同时在黑白名单中
+}
+
+/**
+ *  待解冻金额解禁策略
+ */
+enum class EBitsharesVestingPolicy(val value: Int) {
+    ebvp_linear_vesting_policy(0),          //  线性解禁
+    ebvp_cdd_vesting_policy(1),             //  按币龄解禁
+    ebvp_instant_vesting_policy(2)          //  立即解禁
+}
+
+/**
  *  区块数据对象类型ID号定义
  */
 enum class EBitsharesObjectType(val value: Int) {
@@ -70,6 +99,25 @@ enum class EBitsharesOperations(val value: Int) {
     ebo_transfer_from_blind(41),
     ebo_asset_settle_cancel(42),
     ebo_asset_claim_fees(43),
+    ebo_fba_distribute(44),        // VIRTUAL
+    ebo_bid_collateral(45),
+    ebo_execute_bid(46),           // VIRTUAL
+    ebo_asset_claim_pool(47),
+    ebo_asset_update_issuer(48),
+    ebo_htlc_create(49),
+    ebo_htlc_redeem(50),
+    ebo_htlc_redeemed(51),         // VIRTUAL
+    ebo_htlc_extend(52),
+    ebo_htlc_refund(53),           // VIRTUAL
+}
+
+/**
+ *  石墨烯预算项目类型
+ */
+enum class EBitsharesWorkType(val value: Int) {
+    ebwt_refund(0),
+    ebwt_vesting(1),
+    ebwt_burn(2),
 }
 
 /**
@@ -106,6 +154,15 @@ const val BTS_GLOBAL_PROPERTIES_ID: String = "2.0.0"
 //  0:理事会账号
 const val BTS_GRAPHENE_COMMITTEE_ACCOUNT = "1.2.0"
 
+//  4:空账号（隐私交易可能需要由该账号支付手续费等）
+const val BTS_GRAPHENE_TEMP_ACCOUNT = "1.2.4"
+
+//  5:代理给自己
+const val BTS_GRAPHENE_PROXY_TO_SELF = "1.2.5"
+
+//  黑名单意见账号：btspp-team
+const val BTS_GRAPHENE_ACCOUNT_BTSPP_TEAM = "1.2.1031560"
+
 //  BTS网络动态全局信息对象ID号
 //  格式：
 //    {"id"=>"2.1.0",
@@ -134,3 +191,19 @@ enum class VotingTypes(val value: Int) {
     workers(2),                  //  worker
 }
 
+/**
+ *  HTLC合约部署方式
+ */
+enum class EHtlcDeployMode(val value: Int) {
+    EDM_PREIMAGE(0),               //  根据原像部署
+    EDM_HASHCODE(1),               //  根据Hash部署
+}
+
+/**
+ *  石墨烯网络HTLC支持的Hash类型。
+ */
+enum class EBitsharesHtlcHashType(val value: Int) {
+    EBHHT_RMD160(0),
+    EBHHT_SHA1(1),
+    EBHHT_SHA256(2)
+}

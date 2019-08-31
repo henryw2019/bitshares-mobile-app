@@ -151,6 +151,9 @@
 @interface T_account_update : T_Base
 @end
 
+@interface T_account_upgrade : T_Base
+@end
+
 /**
  *  OP - 待解冻金额相关
  */
@@ -179,6 +182,24 @@
 @end
 
 @interface T_proposal_delete : T_Base
+@end
+
+/**
+ *  OP - 资产相关操作
+ */
+@interface T_asset_update_issuer : T_Base
+@end
+
+/**
+ *  OP - HTLC相关
+ */
+@interface T_htlc_create : T_Base
+@end
+
+@interface T_htlc_redeem : T_Base
+@end
+
+@interface T_htlc_extend : T_Base
 @end
 
 /**

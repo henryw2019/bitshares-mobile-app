@@ -17,6 +17,8 @@
 #import "MyPopviewManager.h"
 
 #import "Gateway/RuDEX.h"
+#import "Gateway/OpenLedger.h"
+#import "GatewayAssetItemData.h"
 
 enum
 {
@@ -213,15 +215,17 @@ enum
     
     //  TODO:1.6 动态加载配置数据
     _gatewayArray = @[
+                      //    TODO:2.5 open的新api还存在部分bug，open那边再进行修复，待修复完毕之后再开放该功能。
 //                      @{
+//                          //    API reference: https://github.com/bitshares/bitshares-ui/files/3068123/OL-gateways-api.pdf
 //                          @"name":@"OpenLedger",
-//                          @"api":[[GatewayBase alloc] initWithApiConfig:@{
-//                                                                          @"base":@"https://ol-api1.openledger.info/api/v0/ol/support",
-//                                                                          @"coin_list":@"/coins",
-//                                                                          @"active_wallets":@"/active-wallets",
-//                                                                          @"trading_pairs":@"/trading-pairs",
-//                                                                          @"request_deposit_address":@"/simple-api/initiate-trade",
-//                                                                          }],
+//                          @"api":[[OpenLedger alloc] initWithApiConfig:@{
+//                                                                         @"base":@"https://gateway.openledger.io",
+//                                                                         @"assets":@"/assets",
+//                                                                         @"exchanges":@"/exchanges",
+//                                                                         @"request_deposit_address":@"/exchanges/%@/transfer/source/prototype",
+//                                                                         @"validate":@"/exchanges/%@/transfer/destination",
+//                                                                         }],
 //                          @"helps":@[
 //                                  @{@"title":NSLocalizedString(@"kVcDWHelpTitleSupport", @"帮助"), @"value":@"https://openledger.freshdesk.com", @"url":@YES},
 //                                  ],
@@ -349,8 +353,8 @@ enum
 - (void)onTipButtonClicked:(UIButton*)sender
 {
     //  [统计]
-    [Answers logCustomEventWithName:@"qa_tip_click" customAttributes:@{@"qa":@"qa_deposit_withdraw"}];
-    VCBtsaiWebView* vc = [[VCBtsaiWebView alloc] initWithUrl:@"http://btspp.io/qam.html#qa_deposit_withdraw"];
+    [OrgUtils logEvents:@"qa_tip_click" params:@{@"qa":@"qa_deposit_withdraw"}];
+    VCBtsaiWebView* vc = [[VCBtsaiWebView alloc] initWithUrl:@"https://btspp.io/qam.html#qa_deposit_withdraw"];
     vc.title = NSLocalizedString(@"kVcTitleWhatIsGatewayAssets", @"什么是网关资产？");
     [self pushViewController:vc vctitle:nil backtitle:kVcDefaultBackTitleName];
 }
@@ -489,10 +493,10 @@ enum
     assert(sender.tag < [_dataArray count]);
     id item = [_dataArray objectAtIndex:sender.tag];
     assert(item);
-    id appext = [item objectForKey:@"kAppExt"];
+    GatewayAssetItemData* appext = [item objectForKey:@"kAppExt"];
     assert(appext);
     
-    if (![[appext objectForKey:@"enableDeposit"] boolValue]){
+    if (!appext.enableDeposit){
         [OrgUtils makeToast:NSLocalizedString(@"kVcDWTipsDisableDeposit", @"该资产暂停充币。")];
         return;
     }
@@ -511,9 +515,36 @@ enum
         VCGatewayDeposit* vc = [[VCGatewayDeposit alloc] initWithUserFullInfo:_fullAccountData
                                                               depositAddrItem:err_or_desposit_item
                                                              depositAssetItem:item];
-        vc.title = [NSString stringWithFormat:NSLocalizedString(@"kVcTitleDeposit", @"%@充币"), appext[@"symbol"]];
+        vc.title = [NSString stringWithFormat:NSLocalizedString(@"kVcTitleDeposit", @"%@充币"), appext.symbol];
         [self pushViewController:vc vctitle:nil backtitle:kVcDefaultBackTitleName];
         return nil;
+    })];
+}
+
+- (WsPromise*)_queryGatewayIntermediateAccountInfo:(GatewayAssetItemData*)appext
+{
+    id intermediateAccount = appext.intermediateAccount;
+    return [WsPromise promise:(^(WsResolveHandler resolve, WsRejectHandler reject) {
+        if (intermediateAccount && ![intermediateAccount isEqualToString:@""]){
+            [self showBlockViewWithTitle:NSLocalizedString(@"kTipsBeRequesting", @"请求中...")];
+            [[[[ChainObjectManager sharedChainObjectManager] queryFullAccountInfo:intermediateAccount] then:(^id(id full_data) {
+                [self hideBlockView];
+                if (!full_data || [full_data isKindOfClass:[NSNull class]])
+                {
+                    resolve(NSLocalizedString(@"kVcDWWithdrawQueryGatewayAccountFailed", @"获取网关中间账号信息异常。"));
+                    return nil;
+                }
+                resolve(full_data);
+                return nil;
+            })] catch:(^id(id error) {
+                [self hideBlockView];
+                resolve(NSLocalizedString(@"tip_network_error", @"网络异常，请稍后再试。"));
+                return nil;
+            })];
+        }else{
+            //  null full account data
+            resolve(nil);
+        }
     })];
 }
 
@@ -522,33 +553,24 @@ enum
     assert(sender.tag < [_dataArray count]);
     id item = [_dataArray objectAtIndex:sender.tag];
     assert(item);
-    id appext = [item objectForKey:@"kAppExt"];
+    GatewayAssetItemData* appext = [item objectForKey:@"kAppExt"];
     assert(appext);
-    if (![[appext objectForKey:@"enableWithdraw"] boolValue]){
+    if (!appext.enableWithdraw){
         [OrgUtils makeToast:NSLocalizedString(@"kVcDWTipsDisableWithdraw", @"该资产暂停提币。")];
         return;
     }
-    
-    [self showBlockViewWithTitle:NSLocalizedString(@"kTipsBeRequesting", @"请求中...")];
-    [[[[ChainObjectManager sharedChainObjectManager] queryFullAccountInfo:[appext objectForKey:@"intermediateAccount"]] then:(^id(id full_data) {
-        [self hideBlockView];
-        if (!full_data || [full_data isKindOfClass:[NSNull class]])
-        {
-            [OrgUtils makeToast:NSLocalizedString(@"kVcDWWithdrawQueryGatewayAccountFailed", @"获取网关中间账号信息异常。")];
+    [[self _queryGatewayIntermediateAccountInfo:appext] then:(^id(id err_nil_full_data) {
+        //  错误处理
+        if (err_nil_full_data && [err_nil_full_data isKindOfClass:[NSString class]]){
+            [OrgUtils makeToast:err_nil_full_data];
             return nil;
         }
-        //  转到提币界面
         VCGatewayWithdraw* vc = [[VCGatewayWithdraw alloc] initWithFullAccountData:_fullAccountData
-                                                               intermediateAccount:full_data
+                                                               intermediateAccount:err_nil_full_data    //  nullable
                                                                  withdrawAssetItem:item
                                                                            gateway:_currGateway];
-        vc.title = [NSString stringWithFormat:NSLocalizedString(@"kVcTitleWithdraw", @"%@提币"), appext[@"symbol"]];
+        vc.title = [NSString stringWithFormat:NSLocalizedString(@"kVcTitleWithdraw", @"%@提币"), appext.symbol];
         [self pushViewController:vc vctitle:nil backtitle:kVcDefaultBackTitleName];
-        
-        return nil;
-    })] catch:(^id(id error) {
-        [self hideBlockView];
-        [OrgUtils makeToast:NSLocalizedString(@"tip_network_error", @"网络异常，请稍后再试。")];
         return nil;
     })];
 }

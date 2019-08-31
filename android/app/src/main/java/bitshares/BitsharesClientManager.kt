@@ -87,6 +87,16 @@ class BitsharesClientManager {
     }
 
     /**
+     *  升级账号
+     */
+    fun accountUpgrde(account_upgrade_op_data: JSONObject): Promise {
+        val tr = TransactionBuilder()
+        tr.add_operation(EBitsharesOperations.ebo_account_upgrade, account_upgrade_op_data)
+        tr.addSignKeys(WalletManager.sharedWalletManager().getSignKeysFromFeePayingAccount(account_upgrade_op_data.getString("account_to_upgrade")))
+        return process_transaction(tr)
+    }
+
+    /**
      *  更新保证金（抵押借贷）
      */
     fun callOrderUpdate(op_data: JSONObject): Promise {
@@ -107,28 +117,56 @@ class BitsharesClientManager {
     }
 
     /**
+     *  OP - 创建待解冻金额
+     */
+    fun vestingBalanceCreate(opdata: JSONObject): Promise {
+        val tr = TransactionBuilder()
+        tr.add_operation(EBitsharesOperations.ebo_vesting_balance_create, opdata)
+        tr.addSignKeys(WalletManager.sharedWalletManager().getSignKeysFromFeePayingAccount(opdata.getString("creator")))
+        return process_transaction(tr)
+    }
+
+    /**
+     *  OP - 提取待解冻金额
+     */
+    fun vestingBalanceWithdraw(opdata: JSONObject): Promise {
+        val tr = TransactionBuilder()
+        tr.add_operation(EBitsharesOperations.ebo_vesting_balance_withdraw, opdata)
+        tr.addSignKeys(WalletManager.sharedWalletManager().getSignKeysFromFeePayingAccount(opdata.getString("owner")))
+        return process_transaction(tr)
+    }
+
+    /**
      *  OP - 创建提案
      */
-    fun proposalCreate(opcode: EBitsharesOperations, opdata: JSONObject, opaccount: JSONObject, fee_paying_account: String): Promise {
+    fun proposalCreate(opcode: EBitsharesOperations, opdata: JSONObject, opaccount: JSONObject, proposal_create_args: JSONObject): Promise {
+        val kFeePayingAccount = proposal_create_args.getJSONObject("kFeePayingAccount")
+        val kApprovePeriod = proposal_create_args.getInt("kApprovePeriod")
+        val kReviewPeriod = proposal_create_args.getInt("kReviewPeriod")
+
+        assert(kFeePayingAccount != null)
+        assert(kApprovePeriod > 0)
+
+        val fee_paying_account_id = kFeePayingAccount.getString("id")
+
         return _wrap_opdata_with_fee(opcode, opdata).then {
             val opdata_with_fee = it as JSONObject
-            //  TODO:fowallet 这2个参数后续考虑让用户自己选择。
 
-            //  提案有效期：3天。TODO：是否考虑用户选择？
-            var proposal_lifetime_sec = 3600 * 24 * 3
+            //  提案有效期
+            var proposal_lifetime_sec = kApprovePeriod + kReviewPeriod
 
-            //  提案审核期：2天    REMARK：该周期必须小于提案有效期
-            var review_period_seconds = 3600 * 24 * 2
+            //  提案审核期
+            var review_period_seconds = kReviewPeriod
 
             //  获取全局参数
             val gp = ChainObjectManager.sharedChainObjectManager().getObjectGlobalProperties()
             val parameters = gp.optJSONObject("parameters")
             if (parameters != null) {
-                //  不能 超过最大值
+                //  不能 超过最大值（当前值28天）
                 val maximum_proposal_lifetime = parameters.getInt("maximum_proposal_lifetime")
                 proposal_lifetime_sec = min(maximum_proposal_lifetime, proposal_lifetime_sec)
 
-                //  不能低于最低值
+                //  不能低于最低值（当前值1小时）
                 val committee_proposal_review_period = parameters.getInt("committee_proposal_review_period")
                 review_period_seconds = max(committee_proposal_review_period, review_period_seconds)
             }
@@ -141,20 +179,22 @@ class BitsharesClientManager {
 
             val op = jsonObjectfromKVS(
                     "fee", jsonObjectfromKVS("amount", 0, "asset_id", BTS_NETWORK_CORE_ASSET_ID),
-                    "fee_paying_account", fee_paying_account,
+                    "fee_paying_account", fee_paying_account_id,
                     "expiration_time", expiration_ts,
                     "proposed_ops", jsonArrayfrom(jsonObjectfromKVS("op", jsonArrayfrom(opcode.value, opdata_with_fee)))
             )
 
-            //  REMARK：如果是理事会账号，必须添加审核周期。一般提案可以不添加。
-            if (opaccount.getString("id") == BTS_GRAPHENE_COMMITTEE_ACCOUNT) {
+            assert(opaccount.getString("id") != BTS_GRAPHENE_COMMITTEE_ACCOUNT || kReviewPeriod > 0)
+
+            //  添加审核期
+            if (kReviewPeriod > 0) {
                 op.put("review_period_seconds", review_period_seconds)
             }
 
             //  创建交易
             val tr = TransactionBuilder()
             tr.add_operation(EBitsharesOperations.ebo_proposal_create, op)
-            tr.addSignKeys(WalletManager.sharedWalletManager().getSignKeysFromFeePayingAccount(fee_paying_account))
+            tr.addSignKeys(WalletManager.sharedWalletManager().getSignKeysFromFeePayingAccount(fee_paying_account_id))
             return@then process_transaction(tr)
         }
     }
@@ -223,6 +263,47 @@ class BitsharesClientManager {
 
         return process_transaction(tr)
     }
+
+    /**
+     *  OP - 更新资产发行者
+     */
+    fun assetUpdateIssuer(opdata: JSONObject): Promise {
+        val tr = TransactionBuilder()
+        tr.add_operation(EBitsharesOperations.ebo_asset_update_issuer, opdata)
+        tr.addSignKeys(WalletManager.sharedWalletManager().getSignKeysFromFeePayingAccount(opdata.getString("issuer"), requireOwnerPermission = true))
+        return process_transaction(tr)
+    }
+
+    /**
+     *  OP - 创建HTLC合约
+     */
+    fun htlcCreate(opdata: JSONObject): Promise {
+        val tr = TransactionBuilder()
+        tr.add_operation(EBitsharesOperations.ebo_htlc_create, opdata)
+        tr.addSignKeys(WalletManager.sharedWalletManager().getSignKeysFromFeePayingAccount(opdata.getString("from")))
+        return process_transaction(tr)
+    }
+
+    /**
+     *  OP - 提取HTLC合约
+     */
+    fun htlcRedeem(opdata: JSONObject): Promise {
+        val tr = TransactionBuilder()
+        tr.add_operation(EBitsharesOperations.ebo_htlc_redeem, opdata)
+        tr.addSignKeys(WalletManager.sharedWalletManager().getSignKeysFromFeePayingAccount(opdata.getString("redeemer")))
+        return process_transaction(tr)
+    }
+
+    /**
+     *  OP - 扩展HTLC合约有效期
+     */
+    fun htlcExtend(opdata: JSONObject): Promise {
+        val tr = TransactionBuilder()
+        tr.add_operation(EBitsharesOperations.ebo_htlc_extend, opdata)
+        tr.addSignKeys(WalletManager.sharedWalletManager().getSignKeysFromFeePayingAccount(opdata.getString("update_issuer")))
+        return process_transaction(tr)
+    }
+
 }
 
 

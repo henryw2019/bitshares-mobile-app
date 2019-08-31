@@ -42,7 +42,7 @@ class ActivityWalletBackup : BtsppActivity() {
             //  初始化webserver
             val nowifi = Utils.isWifi(this)
             if (!nowifi) {
-                findViewById<TextView>(R.id.label_txt_address_or_error).text = resources.getString(R.string.registerLoginTipWifiForBackup)
+                findViewById<TextView>(R.id.label_txt_address_or_error).text = resources.getString(R.string.kBackupWalletOnlyViaWIFI)
             } else {
                 startInitWebserver(this)
             }
@@ -64,7 +64,7 @@ class ActivityWalletBackup : BtsppActivity() {
         _fullpath = "${OrgUtils.getAppDirWebServerImport()}${_filename}"
 
         //  [统计]
-        fabricLogCustom("action_backupwallet", jsonObjectfromKVS("prefix", prefix, "account", wallet_info.optString("kAccountName", "")))
+        btsppLogCustom("action_backupwallet", jsonObjectfromKVS("prefix", prefix, "account", wallet_info.optString("kAccountName", "")))
 
         return OrgUtils.write_file(_fullpath, wallet_bin)
     }
@@ -100,7 +100,7 @@ class ActivityWalletBackup : BtsppActivity() {
             }
 
             override fun onError(e: Exception) {
-                fabricLogCustom("webserver_download_init_error", jsonObjectfromKVS("message", e.message
+                btsppLogCustom("webserver_download_init_error", jsonObjectfromKVS("message", e.message
                         ?: "unknown"))
                 findViewById<TextView>(R.id.label_txt_address_or_error).text = R.string.registerLoginWebServerErrorInit.xmlstring(context)
             }

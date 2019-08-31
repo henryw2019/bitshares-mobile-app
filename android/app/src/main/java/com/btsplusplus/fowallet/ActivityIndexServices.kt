@@ -1,12 +1,14 @@
 package com.btsplusplus.fowallet
 
 import android.os.Bundle
-import bitshares.*
+import bitshares.Promise
+import bitshares.TempManager
+import bitshares.jsonArrayfrom
+import bitshares.xmlstring
 import com.fowallet.walletcore.bts.ChainObjectManager
 import com.fowallet.walletcore.bts.WalletManager
 import kotlinx.android.synthetic.main.activity_index_services.*
 import org.json.JSONArray
-import org.json.JSONObject
 
 class ActivityIndexServices : BtsppActivity() {
 
@@ -37,6 +39,7 @@ class ActivityIndexServices : BtsppActivity() {
         img_icon_voting.setColorFilter(iconcolor)
         img_icon_feedprice.setColorFilter(iconcolor)
         img_icon_deposit_withdraw.setColorFilter(iconcolor)
+        img_icon_advfunction.setColorFilter(iconcolor)
         img_icon_game.setColorFilter(iconcolor)
 
         layout_account_query_from_services.setOnClickListener {
@@ -53,7 +56,7 @@ class ActivityIndexServices : BtsppActivity() {
 
         layout_transfer_from_services.setOnClickListener {
             guardWalletExist {
-                val mask = ViewMesk(R.string.nameRequesting.xmlstring(this), this)
+                val mask = ViewMask(R.string.kTipsBeRequesting.xmlstring(this), this)
                 mask.show()
                 val p1 = get_full_account_data_and_asset_hash(WalletManager.sharedWalletManager().getWalletAccountName()!!)
                 var p2 = ChainObjectManager.sharedChainObjectManager().queryFeeAssetListDynamicInfo()
@@ -65,7 +68,7 @@ class ActivityIndexServices : BtsppActivity() {
                     return@then null
                 }.catch {
                     mask.dismiss()
-                    showToast(resources.getString(R.string.nameNetworkException))
+                    showToast(resources.getString(R.string.tip_network_error))
                 }
             }
         }
@@ -81,23 +84,9 @@ class ActivityIndexServices : BtsppActivity() {
         layout_recharge_and_withdraw_of_service.setOnClickListener {
             guardWalletExist { goTo(ActivityDepositAndWithdraw::class.java, true) }
         }
-    }
 
-    /**
-     * 获取用户的 full_account_data 数据，并且获取余额里所有 asset 的资产详细信息。
-     */
-    private fun get_full_account_data_and_asset_hash(account_name_or_id: String): Promise {
-        //  TODO:后期移动到 ChainObjectManager里
-        return ChainObjectManager.sharedChainObjectManager().queryFullAccountInfo(account_name_or_id).then {
-            val full_account_data = it as JSONObject
-            val list = JSONArray()
-            for (balance in full_account_data.getJSONArray("balances")) {
-                list.put(balance!!.getString("asset_type"))
-            }
-            return@then ChainObjectManager.sharedChainObjectManager().queryAllAssetsInfo(list).then {
-                //  (void)asset_hash 省略，缓存到 ChainObjectManager 即可。
-                return@then full_account_data
-            }
+        layout_advanced_feature_of_service.setOnClickListener {
+            goTo(ActivityAdvancedFeature::class.java, true)
         }
     }
 }

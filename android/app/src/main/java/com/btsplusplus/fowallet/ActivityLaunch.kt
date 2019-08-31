@@ -9,6 +9,7 @@ import bitshares.*
 import bitshares.serializer.T_Base
 import com.crashlytics.android.Crashlytics
 import com.crashlytics.android.answers.Answers
+import com.flurry.android.FlurryAgent
 import com.fowallet.walletcore.bts.ChainObjectManager
 import com.fowallet.walletcore.bts.WalletManager
 import io.fabric.sdk.android.Fabric
@@ -25,6 +26,9 @@ class ActivityLaunch : BtsppActivity() {
 
         //  初始化 Fabric
         Fabric.with(this, Crashlytics(), Answers())
+
+        //  初始化Flurry
+        FlurryAgent.Builder().withLogEnabled(true).build(this, "H45RRHMWCPMKZNNKR5SR")
 
         //  初始化启动界面
         setFullScreen()
@@ -44,6 +48,7 @@ class ActivityLaunch : BtsppActivity() {
         val accountName = WalletManager.sharedWalletManager().getWalletAccountName()
         if (accountName != null && accountName != "") {
             Crashlytics.setUserName(accountName)
+            FlurryAgent.setUserId(accountName)
         }
 
         //  初始化配置
@@ -51,7 +56,7 @@ class ActivityLaunch : BtsppActivity() {
         initCustomConfig()
 
         //  启动日志
-        fabricLogCustom("event_app_start", jsonObjectfromKVS("ver", _appNativeVersion))
+        btsppLogCustom("event_app_start", jsonObjectfromKVS("ver", _appNativeVersion))
 
         //  初始化完毕后启动。
         startInit(true)
@@ -71,7 +76,7 @@ class ActivityLaunch : BtsppActivity() {
             }
         }.catch {
             if (first_init) {
-                showToast(resources.getString(R.string.nameNetworkInitException))
+                showToast(resources.getString(R.string.tip_network_error))
             }
             //  auto restart
             OrgUtils.asyncWait(1000).then {
@@ -109,13 +114,13 @@ class ActivityLaunch : BtsppActivity() {
     private fun _showAppUpdateWindow(message: String, url: String, forceUpdate: Boolean) {
         var btn_cancel: String? = null
         if (!forceUpdate) {
-            btn_cancel = resources.getString(R.string.launchBtnRemindLater)
+            btn_cancel = resources.getString(R.string.kRemindMeLatter)
         }
-        UtilsAlert.showMessageConfirm(this, resources.getString(R.string.registerLoginPageWarmTip), message, btn_ok = resources.getString(R.string.launchBtnUpdateNow), btn_cancel = btn_cancel).then {
+        UtilsAlert.showMessageConfirm(this, resources.getString(R.string.kWarmTips), message, btn_ok = resources.getString(R.string.kUpgradeNow), btn_cancel = btn_cancel).then {
             //  进入APP
             _enterToMain()
             //  立即升级：打开下载。
-            if (it as Boolean) {
+            if (it != null && it as Boolean) {
                 openURL(url)
             }
         }
@@ -136,7 +141,7 @@ class ActivityLaunch : BtsppActivity() {
     private fun checkUpdate(): Promise {
         val p = Promise()
         Utils.now_ts()
-        val version_url = "http://btspp.io/app/android/o_${_appNativeVersion}/version.json?t=${Date().time}"
+        val version_url = "https://btspp.io/app/android/o_${_appNativeVersion}/version.json?t=${Date().time}"
         OrgUtils.asyncJsonGet(version_url).then {
             p.resolve(it as? JSONObject)
             return@then null
@@ -182,11 +187,11 @@ class ActivityLaunch : BtsppActivity() {
                     return@then null
                 }
             }.catch { error ->
-                p.reject(resources.getString(R.string.nameNetworkInitException))
+                p.reject(resources.getString(R.string.tip_network_error))
             }
             return@then null
         }.catch { error ->
-            p.reject(resources.getString(R.string.nameNetworkInitException))
+            p.reject(resources.getString(R.string.tip_network_error))
         }
         return p
     }

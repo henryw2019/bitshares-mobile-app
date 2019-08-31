@@ -9,6 +9,24 @@
 #import <UIKit/UIKit.h>
 #import "UITableViewCellBase.h"
 
+typedef enum EKLineMainIndexType
+{
+    ekmit_show_ma = 0,      //  显示MA指标
+    ekmit_show_ema,         //  显示EMA指标
+    ekmit_show_boll,        //  显示BOLL指标
+    ekmit_show_none,        //  不显示
+    
+    ekmit_max
+} EKLineMainIndexType;
+
+typedef enum EKLineSubIndexType
+{
+    eksit_show_none = 0,    //  高级指标：不显示
+    eksit_show_macd,        //  高级指标：MACD
+    
+    eksit_max
+} EKLineSubIndexType;
+
 typedef enum EKlineDatePeriodType
 {
     ekdpt_timeline = 1,     //  分时图
@@ -21,6 +39,12 @@ typedef enum EKlineDatePeriodType
     ekdpt_1d = 70,          //  日线
     ekdpt_1w = 80,          //  周线
 } EKlineDatePeriodType;
+
+//  K线周期菜单末尾 指标按钮
+#define kBTS_KLINE_INDEX_BUTTON_VALUE   1000
+
+//  K线周期菜单末尾 更多按钮
+#define kBTS_KLINE_MORE_BUTTON_VALUE    1010
 
 //  K线图中价格区间、日期区间、最低最高价格、成交量、MA信息等小主要文字字号
 #define kBTS_KLINE_PRICE_VOL_FONTSIZE   10
@@ -63,5 +87,7 @@ typedef enum EKlineDatePeriodType
 - (id)initWithWidth:(CGFloat)width baseAsset:(id)baseAsset quoteAsset:(id)quoteAsset;
 
 - (void)refreshCandleLayer:(NSArray*)kdata;
+
+- (void)refreshUI;
 
 @end

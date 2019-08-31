@@ -6,6 +6,7 @@ import android.view.Gravity
 import android.widget.LinearLayout
 import android.widget.TextView
 import bitshares.*
+import com.btsplusplus.fowallet.gateway.GatewayAssetItemData
 import com.btsplusplus.fowallet.gateway.GatewayBase
 import com.btsplusplus.fowallet.gateway.RuDEX
 import com.fowallet.walletcore.bts.ChainObjectManager
@@ -41,6 +42,25 @@ class ActivityDepositAndWithdraw : BtsppActivity() {
         //  TODO:1.6 动态加载配置数据
         val ctx = this
         _gatewayArray = JSONArray().apply {
+            //  TODO:2.5 open的新api还存在部分bug，open那边再进行修复，待修复完毕之后再开放该功能。
+//            // OpenLedger   API reference: https://github.com/bitshares/bitshares-ui/files/3068123/OL-gateways-api.pdf
+//            put(JSONObject().apply {
+//                put("name", "OpenLedger")
+//                put("api", OpenLedger().initWithApiConfig(JSONObject().apply {
+//                    put("base", "https://gateway.openledger.io")
+//                    put("assets", "/assets")
+//                    put("exchanges", "/exchanges")
+//                    put("request_deposit_address", "/exchanges/%s/transfer/source/prototype")
+//                    put("validate", "/exchanges/%s/transfer/destination")
+//                }))
+//                put("helps", JSONArray().apply {
+//                    put(JSONObject().apply {
+//                        put("title", R.string.kVcDWHelpTitleSupport.xmlstring(ctx))
+//                        put("value", "https://openledger.freshdesk.com")
+//                        put("url", true)
+//                    })
+//                })
+//            })
             //  GDEX
             put(JSONObject().apply {
                 put("name", "GDEX")
@@ -120,8 +140,8 @@ class ActivityDepositAndWithdraw : BtsppActivity() {
 
     private fun onGatewayAssetsFAQClicked() {
         //  [统计]
-        fabricLogCustom("qa_tip_click", jsonObjectfromKVS("qa", "qa_deposit_withdraw"))
-        goToWebView(resources.getString(R.string.kVcTitleWhatIsGatewayAssets), "http://btspp.io/qam.html#qa_deposit_withdraw")
+        btsppLogCustom("qa_tip_click", jsonObjectfromKVS("qa", "qa_deposit_withdraw"))
+        goToWebView(resources.getString(R.string.kVcTitleWhatIsGatewayAssets), "https://btspp.io/qam.html#qa_deposit_withdraw")
     }
 
     private fun onCurrentGatewayClicked() {
@@ -140,7 +160,7 @@ class ActivityDepositAndWithdraw : BtsppActivity() {
     private fun queryFullAccountDataAndCoinList() {
         val account_data = _fullAccountData.getJSONObject("account")
 
-        val mask = ViewMesk(R.string.nameRequesting.xmlstring(this), this)
+        val mask = ViewMask(R.string.kTipsBeRequesting.xmlstring(this), this)
         mask.show()
 
         val p1 = ChainObjectManager.sharedChainObjectManager().queryFullAccountInfo(account_data.getString("id"))
@@ -156,7 +176,7 @@ class ActivityDepositAndWithdraw : BtsppActivity() {
             }
         }.catch {
             mask.dismiss()
-            showToast(resources.getString(R.string.nameNetworkException))
+            showToast(resources.getString(R.string.tip_network_error))
         }
     }
 
@@ -329,10 +349,10 @@ class ActivityDepositAndWithdraw : BtsppActivity() {
     }
 
     private fun drawOneAssetCell(layout_parent: LinearLayout, item: JSONObject) {
-        val appext = item.getJSONObject("kAppExt")
+        val appext = item.get("kAppExt") as GatewayAssetItemData
 
-        val name = appext.getString("symbol")
-        val balance = appext.getJSONObject("balance")
+        val name = appext.symbol
+        val balance = appext.balance
         var strFreeValue = "0"
         var strOrderValue = "0"
         if (!balance.optBoolean("iszero")) {
@@ -362,7 +382,7 @@ class ActivityDepositAndWithdraw : BtsppActivity() {
         //  充币
         var textColor: Int
         var backColor: Int
-        if (appext.optBoolean("enableDeposit")) {
+        if (appext.enableDeposit) {
             textColor = resources.getColor(R.color.theme01_textColorMain)
             backColor = resources.getColor(R.color.theme01_textColorHighlight)
         } else {
@@ -383,7 +403,7 @@ class ActivityDepositAndWithdraw : BtsppActivity() {
         tv_recharge.setPadding(20.dp, 5.dp, 20.dp, 5.dp)
 
         //  提币
-        if (appext.optBoolean("enableWithdraw")) {
+        if (appext.enableWithdraw) {
             textColor = resources.getColor(R.color.theme01_textColorMain)
             backColor = resources.getColor(R.color.theme01_textColorHighlight)
         } else {
@@ -415,7 +435,7 @@ class ActivityDepositAndWithdraw : BtsppActivity() {
         layout_line2_params.setMargins(0, 0, 0, 10.dp)
 
         val tv_available = TextView(this)
-        tv_available.text = "${R.string.myAssetsPageAvailable.xmlstring(this)} ${strFreeValue}"
+        tv_available.text = "${R.string.kLableAvailable.xmlstring(this)} ${strFreeValue}"
         tv_available.setTextColor(resources.getColor(R.color.theme01_textColorNormal))
         tv_available.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14.0f)
 
@@ -425,7 +445,7 @@ class ActivityDepositAndWithdraw : BtsppActivity() {
         layout_tv_withdraw.gravity = Gravity.RIGHT
 
         val tv_count = TextView(this)
-        tv_count.text = "${R.string.myAssetsPageHangOrder.xmlstring(this)} ${strOrderValue}"
+        tv_count.text = "${R.string.kVcAssetOnOrder.xmlstring(this)} ${strOrderValue}"
         tv_count.setTextColor(resources.getColor(R.color.theme01_textColorNormal))
         tv_count.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14.0f)
         tv_count.setPadding(0, 0, 0.dp, 0)
@@ -449,15 +469,15 @@ class ActivityDepositAndWithdraw : BtsppActivity() {
     }
 
     private fun onButtonDepositClicked(item: JSONObject) {
-        val appext = item.getJSONObject("kAppExt")
-        if (!appext.optBoolean("enableDeposit")) {
+        val appext = item.get("kAppExt") as GatewayAssetItemData
+        if (!appext.enableDeposit) {
             showToast(R.string.kVcDWTipsDisableDeposit.xmlstring(this))
             return
         }
 
         //  获取充币地址
         val ctx = this
-        val mask = ViewMesk(R.string.nameRequesting.xmlstring(ctx), ctx)
+        val mask = ViewMask(R.string.kTipsBeRequesting.xmlstring(ctx), ctx)
         mask.show()
         (_currGateway.get("api") as GatewayBase).requestDepositAddress(item, _fullAccountData, this).then {
             //  错误处理
@@ -469,7 +489,7 @@ class ActivityDepositAndWithdraw : BtsppActivity() {
             }
             val deposit_item = it as JSONObject
             //  create qrcode
-            Utils.asyncCreateQRBitmap(ctx, deposit_item.getString("inputAddress"), 150.dp).then { btm ->
+            Utils.asyncCreateQRBitmap(ctx, deposit_item.optString("inputAddress"), 150.dp).then { btm ->
                 mask.dismiss()
                 //  转到充币界面
                 goTo(ActivityGatewayDeposit::class.java, true, args = JSONObject().apply {
@@ -477,7 +497,7 @@ class ActivityDepositAndWithdraw : BtsppActivity() {
                     put("depositAddrItem", deposit_item)
                     put("depositAssetItem", item)
                     put("qrbitmap", btm!!)
-                    put("title", String.format(R.string.kVcTitleDeposit.xmlstring(ctx), appext.getString("symbol")))
+                    put("title", String.format(R.string.kVcTitleDeposit.xmlstring(ctx), appext.symbol))
                 })
             }
             return@then null
@@ -485,21 +505,17 @@ class ActivityDepositAndWithdraw : BtsppActivity() {
     }
 
     private fun onButtonWithdrawClicked(item: JSONObject) {
-        val appext = item.getJSONObject("kAppExt")
-        if (!appext.optBoolean("enableWithdraw")) {
+        val appext = item.get("kAppExt") as GatewayAssetItemData
+        if (!appext.enableWithdraw) {
             showToast(R.string.kVcDWTipsDisableWithdraw.xmlstring(this))
             return
         }
 
         val ctx = this
-        val mask = ViewMesk(R.string.nameRequesting.xmlstring(this), this)
-        mask.show()
-        ChainObjectManager.sharedChainObjectManager().queryFullAccountInfo(appext.getString("intermediateAccount")).then {
-            mask.dismiss()
-
-            val full_data = it as? JSONObject
-            if (full_data == null) {
-                showToast(R.string.kVcDWWithdrawQueryGatewayAccountFailed.xmlstring(this))
+        _queryGatewayIntermediateAccountInfo(appext).then {
+            val err_nil_full_data = it
+            if (err_nil_full_data != null && err_nil_full_data is String) {
+                showToast(err_nil_full_data)
                 return@then null
             }
 
@@ -507,11 +523,11 @@ class ActivityDepositAndWithdraw : BtsppActivity() {
             val result_promise = Promise()
             goTo(ActivityGatewayWithdraw::class.java, true, args = JSONObject().apply {
                 put("fullAccountData", _fullAccountData)
-                put("intermediateAccount", full_data)
+                put("intermediateAccount", err_nil_full_data)
                 put("withdrawAssetItem", item)
                 put("gateway", _currGateway)
                 put("result_promise", result_promise)
-                put("title", String.format(R.string.kVcTitleWithdraw.xmlstring(ctx), appext.getString("symbol")))
+                put("title", String.format(R.string.kVcTitleWithdraw.xmlstring(ctx), appext.symbol))
             })
             result_promise.then { dirty ->
                 if (dirty as Boolean) {
@@ -520,9 +536,33 @@ class ActivityDepositAndWithdraw : BtsppActivity() {
                 }
             }
             return@then null
-        }.catch {
-            mask.dismiss()
-            showToast(resources.getString(R.string.nameNetworkException))
         }
+    }
+
+    private fun _queryGatewayIntermediateAccountInfo(appext: GatewayAssetItemData): Promise {
+        val ctx = this
+        val intermediateAccount = appext.intermediateAccount
+        val p = Promise()
+        if (intermediateAccount != null && intermediateAccount != "") {
+            val mask = ViewMask(R.string.kTipsBeRequesting.xmlstring(this), this)
+            mask.show()
+            ChainObjectManager.sharedChainObjectManager().queryFullAccountInfo(intermediateAccount).then {
+                mask.dismiss()
+                val full_data = it as? JSONObject
+                if (full_data == null) {
+                    p.resolve(R.string.kVcDWWithdrawQueryGatewayAccountFailed.xmlstring(ctx))
+                    return@then null
+                }
+                p.resolve(full_data)
+                return@then null
+            }.catch {
+                mask.dismiss()
+                showToast(R.string.tip_network_error.xmlstring(ctx))
+            }
+        } else {
+            //  null full account data
+            p.resolve(null)
+        }
+        return p
     }
 }

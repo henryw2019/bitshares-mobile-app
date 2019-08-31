@@ -20,8 +20,8 @@
     
     UITableView*            _mainTableView;
     
-    UITextField*            _tf_password;
-    UITextField*            _tf_wallet_password;
+    MyTextField*            _tf_password;
+    MyTextField*            _tf_wallet_password;
     ViewBlockLabel*         _lbCreate;
 }
 
@@ -116,6 +116,7 @@
     NSString* placeHolder = NSLocalizedString(@"unlockTipsPleaseInputAccountPassword", @"请输入帐号密码");
     _tf_password = [self createTfWithRect:rect keyboard:UIKeyboardTypeDefault placeholder:placeHolder];
     _tf_password.secureTextEntry = YES;
+    _tf_password.updateClearButtonTintColor = YES;
     _tf_password.textColor = [ThemeManager sharedThemeManager].textColorMain;
     _tf_password.attributedPlaceholder = [[NSAttributedString alloc] initWithString:placeHolder
                                                                      attributes:@{NSForegroundColorAttributeName:[ThemeManager sharedThemeManager].textColorGray,
@@ -126,6 +127,7 @@
                                      placeholder:NSLocalizedString(@"kLoginTipsPlaceholderWalletPassword", @"8位以上钱包文件密码")
                                           action:@selector(onTipButtonClicked:) tag:1];
     _tf_wallet_password.secureTextEntry = YES;
+    _tf_wallet_password.updateClearButtonTintColor = YES;
     _tf_wallet_password.textColor = [ThemeManager sharedThemeManager].textColorMain;
     _tf_wallet_password.attributedPlaceholder = [[NSAttributedString alloc] initWithString:_tf_wallet_password.placeholder
                                                                                 attributes:@{NSForegroundColorAttributeName:[ThemeManager sharedThemeManager].textColorGray,
@@ -216,9 +218,7 @@
     assert(owner_private_wif);
     assert(active_private_wif);
     id full_wallet_bin = [walletMgr genFullWalletData:accountName
-                                               active:active_private_wif
-                                                owner:owner_private_wif
-                                                 memo:nil
+                                     private_wif_keys:@[active_private_wif, owner_private_wif]
                                       wallet_password:wallet_password];
     assert(full_wallet_bin);
     
@@ -236,7 +236,7 @@
            [[unlockInfos objectForKey:@"haveActivePermission"] boolValue]);
     
     //  [统计]
-    [Answers logCustomEventWithName:@"convertEvent" customAttributes:@{@"mode":@(kwmPasswordWithWallet), @"desc":@"password+wallet"}];
+    [OrgUtils logEvents:@"convertEvent" params:@{@"mode":@(kwmPasswordWithWallet), @"desc":@"password+wallet"}];
     
     //  转换成功 - 关闭界面
     [self.myNavigationController tempDisableDragBack];
@@ -341,23 +341,6 @@
     [self.view endEditing:YES];
     [_tf_password safeResignFirstResponder];
     [_tf_wallet_password safeResignFirstResponder];
-}
-
-#pragma mark-
-#pragma drag back event
-
-- (void)onDragBackStart
-{
-    [self.view endEditing:YES];
-    [_tf_password safeResignFirstResponder];
-    [_tf_wallet_password safeResignFirstResponder];
-}
-
-- (void)onDragBackFinish:(BOOL)bToTarget
-{
-    if (!bToTarget)
-    {
-    }
 }
 
 @end

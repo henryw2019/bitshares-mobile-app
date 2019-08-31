@@ -21,6 +21,7 @@
     UILabel*        _lbWorkerName;
     UIButton*       _btnIntro;
     
+    UILabel*        _lbWorkerID;
     UILabel*        _lbAccountName;
     UILabel*        _lbVoteNumber;
     UILabel*        _lbDailyPay;
@@ -43,6 +44,7 @@
     _lbWorkerName = nil;
     _btnIntro = nil;
     
+    _lbWorkerID = nil;
     _lbAccountName = nil;
     _lbVoteNumber = nil;
     _lbDailyPay = nil;
@@ -91,9 +93,17 @@
             _btnIntro = nil;
         }
         
+        _lbWorkerID = [[UILabel alloc] initWithFrame:CGRectZero];
+        _lbWorkerID.lineBreakMode = NSLineBreakByTruncatingTail;
+        _lbWorkerID.textAlignment = NSTextAlignmentLeft;
+        _lbWorkerID.numberOfLines = 1;
+        _lbWorkerID.backgroundColor = [UIColor clearColor];
+        _lbWorkerID.font = [UIFont boldSystemFontOfSize:13];
+        [self addSubview:_lbWorkerID];
+        
         _lbAccountName = [[UILabel alloc] initWithFrame:CGRectZero];
         _lbAccountName.lineBreakMode = NSLineBreakByTruncatingTail;
-        _lbAccountName.textAlignment = NSTextAlignmentLeft;
+        _lbAccountName.textAlignment = NSTextAlignmentRight;
         _lbAccountName.numberOfLines = 1;
         _lbAccountName.backgroundColor = [UIColor clearColor];
         _lbAccountName.font = [UIFont boldSystemFontOfSize:13];
@@ -172,19 +182,6 @@
     }
 }
 
-/**
- *  获取 worker 类型。0:refund 1:vesting 2:burn
- */
-- (NSInteger)_getWorkerType
-{
-    id worker = [_item objectForKey:@"worker"];
-    if ([worker isKindOfClass:[NSArray class]] && [worker count] > 0){
-        return [[worker firstObject] integerValue];
-    }
-    //  default is vesting worker
-    return 1;
-}
-
 - (void)layoutSubviews
 {
     [super layoutSubviews];
@@ -241,6 +238,13 @@
         name = account_id;
     }
     
+    _lbWorkerID.attributedText = [self genAndColorAttributedText:NSLocalizedString(@"kVcVoteCellWorkerID", @"ID ")
+                                                           value:_item[@"id"]
+                                                      titleColor:theme.textColorNormal
+                                                      valueColor:mainColor];
+    _lbWorkerID.frame = CGRectMake(xOffset, yOffset, fWidth, fLineHeight);
+    
+    
     _lbAccountName.attributedText = [self genAndColorAttributedText:NSLocalizedString(@"kVcVoteCellCreator", @"创建者 ")
                                                              value:name
                                                         titleColor:theme.textColorNormal
@@ -281,15 +285,15 @@
     
     //  type flag
     NSString* flagTypeStr = @"";
-    NSInteger workerType = [self _getWorkerType];
+    NSInteger workerType = [OrgUtils getWorkerType:_item];
     switch (workerType) {
-        case 0: //  refund
+        case ebwt_refund:
             flagTypeStr = NSLocalizedString(@"kVcVoteCellWPRefund", @"退款");
             break;
-        case 1: //  vesting
+        case ebwt_vesting:
             flagTypeStr = NSLocalizedString(@"kVcVoteCellWPVesting", @"普通");
             break;
-        case 2: //  burn
+        case ebwt_burn:
             flagTypeStr = NSLocalizedString(@"kVcVoteCellWPBurn", @"销毁");
             break;
         default:

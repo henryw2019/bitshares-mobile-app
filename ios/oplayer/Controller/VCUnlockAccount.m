@@ -20,7 +20,7 @@
     
     UITableView *           _mainTableView;
     
-    UITextField*            _tf_password;
+    MyTextField*            _tf_password;
     ViewBlockLabel*         _lbLogin;
 }
 
@@ -105,9 +105,8 @@
             placeHolder = NSLocalizedString(@"unlockTipsPleaseInputAccountPassword", @"请输入帐号密码");
             break;
         case kwmPasswordWithWallet:
-            placeHolder = NSLocalizedString(@"unlockTipsPleaseInputTradePassword", @"请输入交易密码");
-            break;
         case kwmPrivateKeyWithWallet:
+        case kwmBrainKeyWithWallet:
             placeHolder = NSLocalizedString(@"unlockTipsPleaseInputTradePassword", @"请输入交易密码");
             break;
         case kwmFullWalletMode:
@@ -119,6 +118,7 @@
     }
     _tf_password = [self createTfWithRect:rect keyboard:UIKeyboardTypeDefault placeholder:placeHolder];
     _tf_password.secureTextEntry = YES;
+    _tf_password.updateClearButtonTintColor = YES;
     _tf_password.textColor = [ThemeManager sharedThemeManager].textColorMain;
     _tf_password.attributedPlaceholder = [[NSAttributedString alloc] initWithString:placeHolder
                                                                      attributes:@{NSForegroundColorAttributeName:[ThemeManager sharedThemeManager].textColorGray,
@@ -262,22 +262,6 @@
 {
     [self.view endEditing:YES];
     [_tf_password safeResignFirstResponder];
-}
-
-#pragma mark-
-#pragma drag back event
-
-- (void)onDragBackStart
-{
-    [self.view endEditing:YES];
-    [_tf_password safeResignFirstResponder];
-}
-
-- (void)onDragBackFinish:(BOOL)bToTarget
-{
-    if (!bToTarget)
-    {
-    }
 }
 
 @end

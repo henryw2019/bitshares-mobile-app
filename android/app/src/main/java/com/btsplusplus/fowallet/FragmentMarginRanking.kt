@@ -35,6 +35,7 @@ class FragmentMarginRanking : BtsppFragment() {
     private var _currentView: View? = null
     private var _tradingPair: TradingPair? = null
     private var _feedPriceInfo: BigDecimal? = null
+    private var _mcr: BigDecimal? = null
 
     private var _ctx: Context? = null
 
@@ -60,9 +61,13 @@ class FragmentMarginRanking : BtsppFragment() {
         }
         _feedPriceInfo = _tradingPair!!.calcShowFeedInfo(jsonArrayfrom(feedPriceData))
 
+        //  计算MCR
+        val mcr = feedPriceData.getJSONObject("current_feed").getString("maintenance_collateral_ratio")
+        _mcr = bigDecimalfromAmount(mcr, 3)
+
         //  刷新UI
         //  喂价
-        _currentView!!.findViewById<TextView>(R.id.label_txt_curr_feed).text = "${_ctx!!.resources.getString(R.string.debtPageCurrentFeedPrice)} ${_feedPriceInfo!!.toPriceAmountString()}"
+        _currentView!!.findViewById<TextView>(R.id.label_txt_curr_feed).text = "${_ctx!!.resources.getString(R.string.kVcRankCurrentFeedPrice)} ${_feedPriceInfo!!.toPriceAmountString()}"
         //  列表
         val lay = _currentView!!.findViewById<LinearLayout>(R.id.layout_fragment_of_diya_ranking_cny)
         lay.removeAllViews()
@@ -72,10 +77,10 @@ class FragmentMarginRanking : BtsppFragment() {
             val layout_params = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, toDp(30f))
             layout_params.gravity = Gravity.CENTER_VERTICAL
             for (json in data_array.forin<JSONObject>()) {
-                createCell(lay, this.activity?.applicationContext!!, layout_params, json!!)
+                createCell(lay, _ctx!!, layout_params, json!!)
             }
         } else {
-            lay.addView(ViewUtils.createEmptyCenterLabel(_ctx!!, R.string.debtPageNoCallOrder.xmlstring(_ctx!!)))
+            lay.addView(ViewUtils.createEmptyCenterLabel(_ctx!!, R.string.kVcTipsNoCallOrder.xmlstring(_ctx!!)))
         }
     }
 
@@ -96,7 +101,7 @@ class FragmentMarginRanking : BtsppFragment() {
 
         //  强平触发价
         val tv1 = TextView(ctx)
-        tv1.text = R.string.debtPageForcedLiquidationTriggerPrice.xmlstring(ctx)
+        tv1.text = R.string.kVcRankCallPrice.xmlstring(ctx)
         tv1.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12.0f)
         tv1.setTextColor(resources.getColor(R.color.theme01_textColorNormal))
         tv1.gravity = Gravity.CENTER_VERTICAL
@@ -110,7 +115,7 @@ class FragmentMarginRanking : BtsppFragment() {
 
         //  抵押率
         val tv3 = TextView(ctx)
-        tv3.text = R.string.nameMortgageRate.xmlstring(ctx)
+        tv3.text = R.string.kVcRankRatio.xmlstring(ctx)
         tv3.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12.0f)
         tv3.setTextColor(resources.getColor(R.color.theme01_textColorNormal))
         tv3.gravity = Gravity.CENTER_VERTICAL or Gravity.RIGHT
@@ -139,7 +144,7 @@ class FragmentMarginRanking : BtsppFragment() {
 
         //  抵押
         val tv5 = TextView(ctx)
-        tv5.text = "${R.string.debtPageCollateral.xmlstring(ctx)}(${_tradingPair!!._quoteAsset.getString("symbol")})"
+        tv5.text = "${R.string.kVcRankColl.xmlstring(ctx)}(${_tradingPair!!._quoteAsset.getString("symbol")})"
         tv5.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12.0f)
         tv5.setTextColor(resources.getColor(R.color.theme01_textColorNormal))
         tv5.gravity = Gravity.CENTER_VERTICAL
@@ -153,7 +158,7 @@ class FragmentMarginRanking : BtsppFragment() {
 
         //  借入
         val tv7 = TextView(ctx)
-        tv7.text = "${R.string.debtPageBorrow.xmlstring(ctx)}(${_tradingPair!!._baseAsset.getString("symbol")})"
+        tv7.text = "${R.string.kVcRankDebt.xmlstring(ctx)}(${_tradingPair!!._baseAsset.getString("symbol")})"
         tv7.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12.0f)
         tv7.setTextColor(resources.getColor(R.color.theme01_textColorNormal))
         tv7.gravity = Gravity.CENTER_VERTICAL or Gravity.RIGHT
@@ -188,16 +193,19 @@ class FragmentMarginRanking : BtsppFragment() {
         val str_collateral = data.getString("collateral")
         val str_debt = data.getString("debt")
 
+        val debt_precision = _tradingPair!!._basePrecision
+        val collateral_precision = _tradingPair!!._quotePrecision
+
         //  计算抵押率
-        val n_coll = bigDecimalfromAmount(str_collateral, base_precision)
-        val n_debt = bigDecimalfromAmount(str_debt, quote_precision)
+        val n_coll = bigDecimalfromAmount(str_collateral, collateral_precision)
+        val n_debt = bigDecimalfromAmount(str_debt, debt_precision)
         val n_ratio = BigDecimal.valueOf(100.0).multiply(n_coll).multiply(_feedPriceInfo!!).divide(n_debt, 2, BigDecimal.ROUND_UP)
 
         //  强平触发价 高精度计算
-        tv2.text = OrgUtils.calcSettlementTriggerPrice(call_price, base_precision, quote_precision).toPriceAmountString()
+        tv2.text = OrgUtils.calcSettlementTriggerPrice(str_debt, str_collateral, debt_precision, collateral_precision, _mcr!!, false, null, true).toPriceAmountString()
         tv4.text = "${n_ratio.toPlainString()}%"
-        tv6.text = OrgUtils.formatAssetString(str_collateral, base_precision)
-        tv8.text = OrgUtils.formatAssetString(str_debt, quote_precision)
+        tv6.text = OrgUtils.formatAssetString(str_collateral, collateral_precision)
+        tv8.text = OrgUtils.formatAssetString(str_debt, debt_precision)
 
         // 线
         val lv_line = View(ctx)
@@ -231,8 +239,8 @@ class FragmentMarginRanking : BtsppFragment() {
         val v: View = inflater.inflate(R.layout.fragment_margin_ranking, container, false)
         v.findViewById<ImageView>(R.id.tip_link_feedprice).setOnClickListener {
             //  [统计]
-            fabricLogCustom("qa_tip_click", jsonObjectfromKVS("qa", "qa_feedprice"))
-            activity!!.goToWebView(_ctx!!.resources.getString(R.string.debtPageWhatIsFeedPrice), "http://btspp.io/qam.html#qa_feedprice")
+            btsppLogCustom("qa_tip_click", jsonObjectfromKVS("qa", "qa_feedprice"))
+            activity!!.goToWebView(_ctx!!.resources.getString(R.string.kVcTitleWhatIsFeedPrice), "https://btspp.io/qam.html#qa_feedprice")
         }
         _currentView = v
         //  refresh UI

@@ -312,10 +312,9 @@
     
     NSLog(@"intro clicked: %@", @(sender.tag));
     //  [统计]
-    [Answers logCustomEventWithName:@"qa_tip_click" customAttributes:@{@"qa":@"qa_gateway"}];
-    //  TODO:fowallet 未完成，我们自己的qa网址。
-    VCBtsaiWebView* vc = [[VCBtsaiWebView alloc] initWithUrl:@"http://btspp.io/qam.html#qa_gateway"];
-    vc.title = @"什么是网关？";
+    [OrgUtils logEvents:@"qa_tip_click" params:@{@"qa":@"qa_gateway"}];
+    VCBtsaiWebView* vc = [[VCBtsaiWebView alloc] initWithUrl:@"https://btspp.io/qam.html#qa_gateway"];
+    vc.title = NSLocalizedString(@"kVcTitleWhatIsGateway", @"什么是网关？");
     [_owner pushViewController:vc vctitle:nil backtitle:kVcDefaultBackTitleName];
 }
 
@@ -400,9 +399,9 @@
     id item;
     NSDictionary* ticker_data = [chainMgr getTickerData:base_symbol quote:quote_symbol];
     if (ticker_data){
-        item = @{@"quote":[quote objectForKey:@"symbol"], @"base_asset":base, @"base_market_name":base_market_name, @"ticker_data":ticker_data};
+        item = @{@"quote":quote, @"base":base, @"base_market_name":base_market_name, @"ticker_data":ticker_data};
     }else{
-        item = @{@"quote":[quote objectForKey:@"symbol"], @"base_asset":base, @"base_market_name":base_market_name};
+        item = @{@"quote":quote, @"base":base, @"base_market_name":base_market_name};
     }
     
     [cell setGroupInfo:group_info];
@@ -446,8 +445,20 @@
     if (_mainTableView){
         [_mainTableView reloadData];
     }
-    
-    //    _lbEmptyOrder//TODO:fowallt theme
+    if (_lbEmptyOrder){
+        _lbEmptyOrder.textColor = [ThemeManager sharedThemeManager].textColorMain;
+    }
+}
+
+#pragma mark- switch language
+- (void)switchLanguage
+{
+    if (_mainTableView){
+        [_mainTableView reloadData];
+    }
+    if (_lbEmptyOrder){
+        _lbEmptyOrder.text = NSLocalizedString(@"kLabelNoFavMarket", @"没有任何自选");
+    }
 }
 
 @end

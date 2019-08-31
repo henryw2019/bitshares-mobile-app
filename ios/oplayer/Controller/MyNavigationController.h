@@ -10,8 +10,6 @@
 
 @interface MyNavigationController : UINavigationController
 
-- (void)clearBackgroundView;
-
 - (BOOL)shouldAutorotate;
 - (NSUInteger)supportedInterfaceOrientations;
 - (UIInterfaceOrientation)preferredInterfaceOrientationForPresentation;
@@ -20,5 +18,6 @@
 - (void)tempDisableDragBack;
 
 - (void)switchTheme;
+- (void)switchLanguage;
 
 @end

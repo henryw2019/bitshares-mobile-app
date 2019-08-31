@@ -3,9 +3,12 @@ package com.fowallet.walletcore.bts
 import android.content.Context
 import bitshares.*
 import com.btsplusplus.fowallet.kline.TradingPair
+import com.btsplusplus.fowallet.utils.BigDecimalHandler
 import com.orhanobut.logger.Logger
 import org.json.JSONArray
 import org.json.JSONObject
+import java.math.BigDecimal
+import java.math.BigInteger
 import kotlin.math.floor
 
 
@@ -14,8 +17,9 @@ class ChainObjectManager {
     /**
      *  各种属性定义
      */
-    var isTestNetwork: Boolean = false                   //  是否是测试网络
+    var isTestNetwork: Boolean = false          //  是否是测试网络
     var grapheneChainID: String                 //  石墨烯区块链ID
+    var grapheneCoreAssetID: String             //  石墨烯网络核心资产ID
     var grapheneAssetSymbol: String             //  石墨烯网络核心资产名称
     var grapheneAddressPrefix: String           //  石墨烯网络地址前缀
 
@@ -23,6 +27,7 @@ class ChainObjectManager {
     var _cacheObjectID2ObjectHash: MutableMap<String, JSONObject>       //  内存缓存
     var _cacheAccountName2ObjectHash: MutableMap<String, JSONObject>    //  内存缓存
     var _cacheUserFullAccountData: MutableMap<String, JSONObject>       //  内存缓存
+    var _cacheVoteIdInfoHash: MutableMap<String, JSONObject>            //  内存缓存
 
     var _defaultMarketInfos: JSONObject?                                         //  ipa自带的默认配置信息（fowallet_market.json）
     var _defaultMarketPairs: JSONObject? = null                             //  默认内置交易对。交易对格式：#{base_symbol}_#{quote_symbol}
@@ -55,6 +60,7 @@ class ChainObjectManager {
         //  初始化各种属性默认值
         isTestNetwork = false
         grapheneChainID = BTS_NETWORK_CHAIN_ID
+        grapheneCoreAssetID = BTS_NETWORK_CORE_ASSET_ID
         grapheneAssetSymbol = BTS_NETWORK_CORE_ASSET
         grapheneAddressPrefix = BTS_ADDRESS_PREFIX
 
@@ -62,6 +68,7 @@ class ChainObjectManager {
         _cacheObjectID2ObjectHash = mutableMapOf()
         _cacheAccountName2ObjectHash = mutableMapOf()
         _cacheUserFullAccountData = mutableMapOf()
+        _cacheVoteIdInfoHash = mutableMapOf()
 
         _defaultMarketInfos = null
         _defaultMarketPairs = null
@@ -134,7 +141,6 @@ class ChainObjectManager {
      */
     private fun auxCalcGroupInfo(quote_asset: JSONObject): JSONObject {
         assert(_defaultGroupList != null)
-        assert(quote_asset != null)
 
         val quote_issuer = quote_asset.getString("issuer")
         for (group in _defaultGroupList!!) {
@@ -337,7 +343,6 @@ class ChainObjectManager {
      *  (public) 根据计价货币symbol获取计价单位配置信息
      */
     fun getEstimateUnitBySymbol(symbol: String): JSONObject {
-        assert(_estimate_unit_hash != null)
         return _estimate_unit_hash[symbol]!!
     }
 
@@ -370,7 +375,6 @@ class ChainObjectManager {
      *  (public) 获取最终的市场列表信息（默认 + 自定义）
      */
     fun getMergedMarketInfos(): MutableList<JSONObject> {
-        assert(_mergedMarketInfoList != null)
         return _mergedMarketInfoList
     }
 
@@ -386,7 +390,6 @@ class ChainObjectManager {
      *  (public) 根据 base_symbol 获取 market 信息。
      */
     fun getDefaultMarketInfoByBaseSymbol(base_symbol: String): JSONObject {
-        assert(_defaultMarketBaseHash != null)
         return _defaultMarketBaseHash[base_symbol]!!
     }
 
@@ -405,12 +408,20 @@ class ChainObjectManager {
         return _cacheObjectID2ObjectHash[BTS_GLOBAL_PROPERTIES_ID]!!
     }
 
-    fun updateObjectGlobalProperties(gp: JSONObject) {
+    fun updateObjectGlobalProperties(gp: JSONObject?) {
         if (gp != null) {
             _cacheObjectID2ObjectHash[BTS_GLOBAL_PROPERTIES_ID] = gp
         }
     }
 
+    fun queryGlobalProperties(): Promise {
+        val api = GrapheneConnectionManager.sharedGrapheneConnectionManager().any_connection()
+        return api.async_exec_db("get_global_properties").then {
+            val global_data = it as JSONObject
+            updateObjectGlobalProperties(global_data)
+            return@then global_data
+        }
+    }
 
     /**
      *  (public) 获取指定分组信息
@@ -455,6 +466,10 @@ class ChainObjectManager {
         return _cacheObjectID2ObjectHash[oid]
     }
 
+    fun getVoteInfoByVoteID(vote_id: String): JSONObject? {
+        return _cacheVoteIdInfoHash[vote_id]
+    }
+
     fun getAccountByName(name: String): JSONObject {
         assert(_cacheAccountName2ObjectHash != null)
         assert(name != null)
@@ -494,12 +509,13 @@ class ChainObjectManager {
     fun updateGrapheneObjectCache(data_array: JSONArray?) {
         if (data_array != null && data_array.length() > 0) {
             val pAppCache = AppCacheManager.sharedAppCacheManager()
-            data_array.forEach<JSONObject> {
-                val obj = it!!
-                val oid = obj.optString("id")
-                if (oid != "") {
-                    pAppCache.update_object_cache(oid, obj)
-                    _cacheObjectID2ObjectHash[oid] = obj
+            data_array.forEach<JSONObject> { obj ->
+                if (obj != null) {
+                    val oid = obj.optString("id")
+                    if (oid != "") {
+                        pAppCache.update_object_cache(oid, obj)
+                        _cacheObjectID2ObjectHash[oid] = obj
+                    }
                 }
             }
             pAppCache.saveObjectCacheToFile()
@@ -508,8 +524,9 @@ class ChainObjectManager {
 
     /**
      *  (public) 获取手续费对象
+     *  extra_balance   - key: asset_type   value: balance amount
      */
-    fun getFeeItem(op_code: EBitsharesOperations, full_account_data: JSONObject?): JSONObject {
+    fun getFeeItem(op_code: EBitsharesOperations, full_account_data: JSONObject?, extra_balance: JSONObject? = null): JSONObject {
         var local_full_account_data = full_account_data
         if (local_full_account_data == null) {
             val wallet_account_info = WalletManager.sharedWalletManager().getWalletAccountInfo()!!
@@ -519,21 +536,43 @@ class ChainObjectManager {
                 local_full_account_data = wallet_account_info
             }
         }
-        return estimateFeeObject(op_code.value, local_full_account_data)
+        return estimateFeeObject(op_code.value, local_full_account_data, extra_balance)
     }
 
     /**
      *  (public) 评估指定交易操作所需要的手续费信息
      */
-    fun estimateFeeObject(op: Int, full_account_data: JSONObject): JSONObject {
-        val balances_list = JSONArray()
+    fun estimateFeeObject(op: Int, full_account_data: JSONObject, extra_balance: JSONObject? = null): JSONObject {
+        val balance_hash = JSONObject()
         for (balance_object in full_account_data.getJSONArray("balances")) {
-            val item = JSONObject()
-            item.put("asset_id", balance_object!!.getString("asset_type"))
-            item.put("amount", balance_object.getString("balance"))
-            balances_list.put(item)
+            val asset_type = balance_object!!.getString("asset_type")
+            var balance = balance_object.getString("balance")
+            if (extra_balance != null) {
+                val extra_amount = extra_balance.optString(asset_type, null)
+                if (extra_amount != null) {
+                    balance = BigInteger(balance).add(BigInteger(extra_amount)).toString()
+                }
+            }
+            balance_hash.put(asset_type, JSONObject().apply {
+                put("asset_id", asset_type)
+                put("amount", balance)
+            })
         }
-        return estimateFeeObject(op, balances_list)
+
+        //  合并
+        if (extra_balance != null) {
+            extra_balance.keys().forEach { asset_type ->
+                if (balance_hash.optJSONObject(asset_type) == null) {
+                    val extra_amount = extra_balance.getString(asset_type)
+                    balance_hash.put(asset_type, JSONObject().apply {
+                        put("asset_id", asset_type)
+                        put("amount", extra_amount)
+                    })
+                }
+            }
+        }
+
+        return estimateFeeObject(op, balance_hash.values())
     }
 
     fun estimateFeeObject(op: Int, balance_list: JSONArray): JSONObject {
@@ -817,8 +856,7 @@ class ChainObjectManager {
         }
         Logger.d("[Track] queryFeeAssetListDynamicInfo start.")
 
-
-        return queryAllObjectsInfo(asset_id_array, _cacheAssetSymbol2ObjectHash, "symbol", true).then {
+        return queryAllObjectsInfo(asset_id_array, _cacheAssetSymbol2ObjectHash, "symbol", true, null).then {
             val asset_hash = it as JSONObject
             Logger.d("[Track] queryFeeAssetListDynamicInfo step01 finish.")
             //  仅有 BTS 可支付手续费，那么这里应该为空了。
@@ -844,9 +882,106 @@ class ChainObjectManager {
                 return@then null
             }
         }
-
     }
 
+    /**
+     *  (public) 查询智能资产的信息（非智能资产返回nil）
+     */
+    fun queryShortBackingAssetInfos(asset_id_list: JSONArray): Promise {
+        return queryAllAssetsInfo(asset_id_list).then {
+            val asset_hash = it as JSONObject
+            val asset_bitasset_hash = JSONObject()
+            val bitasset_id_list = JSONArray()
+            asset_id_list.forEach<String> { item ->
+                val asset_id = item!!
+                val asset = asset_hash.getJSONObject(asset_id)
+                val bitasset_data_id = asset.optString("bitasset_data_id")
+                if (bitasset_data_id != "") {
+                    bitasset_id_list.put(bitasset_data_id)
+                    asset_bitasset_hash.put(asset_id, bitasset_data_id)
+                }
+            }
+            return@then queryAllGrapheneObjects(bitasset_id_list).then { resultHash ->
+                val bitasset_hash = resultHash as JSONObject
+                val sba_hash = JSONObject()
+                asset_bitasset_hash.keys().forEach { asset_id ->
+                    val bitasset_data_id = asset_bitasset_hash.getString(asset_id)
+                    val bitasset_data = bitasset_hash.getJSONObject(bitasset_data_id)
+                    val short_backing_asset = bitasset_data.getJSONObject("options").getString("short_backing_asset")
+                    sba_hash.put(asset_id, short_backing_asset)
+                }
+                return@then sba_hash
+            }
+        }
+    }
+
+    /**
+     *  (public) 查询所有投票ID信息
+     */
+    fun queryAllVoteIds(vote_id_array: JSONArray): Promise {
+
+        //  TODO:分批查询？
+        assert(vote_id_array.length() < 1000)
+
+        val resultHash = JSONObject()
+
+        //  要查询的数据为空，则返回空的 Hash。
+        if (vote_id_array.length() <= 0) {
+            return Promise._resolve(resultHash)
+        }
+
+        val queryArray = JSONArray()
+
+        //  从缓存加载
+        val pAppCache = AppCacheManager.sharedAppCacheManager()
+        val now_ts = Utils.now_ts()
+
+        vote_id_array.forEach<String> {
+            val vote_id = it!!
+            val obj = pAppCache.get_object_cache_ts(vote_id, now_ts)
+            if (obj != null) {
+                _cacheVoteIdInfoHash[vote_id] = obj     //  add to memory cache: id hash
+                resultHash.put(vote_id, obj)
+            } else {
+                queryArray.put(vote_id)
+            }
+        }
+        if (queryArray.length() == 0) {
+            return Promise._resolve(resultHash)
+        }
+        //  从网络查询。
+        val api = GrapheneConnectionManager.sharedGrapheneConnectionManager().any_connection()
+        return api.async_exec_db("lookup_vote_ids", jsonArrayfrom(queryArray)).then {
+            val data_array = it as JSONArray
+
+            data_array.forEach<JSONObject?> {
+                val obj = it
+                if (obj != null) {
+                    val vid = obj.optString("vote_id", null)
+                    if (vid != null) {
+                        pAppCache.update_object_cache(vid, obj)
+                        _cacheVoteIdInfoHash[vid] = obj           //  add to memory cache: id hash
+                        resultHash.put(vid, obj)
+                    } else {
+                        val vote_for = obj.getString("vote_for")
+                        val vote_against = obj.getString("vote_against")
+
+                        pAppCache.update_object_cache(vote_for, obj)
+                        _cacheVoteIdInfoHash[vote_for] = obj      //  add to memory cache: id hash
+                        resultHash.put(vote_for, obj)
+
+                        pAppCache.update_object_cache(vote_against, obj)
+                        _cacheVoteIdInfoHash[vote_against] = obj  //  add to memory cache: id hash
+                        resultHash.put(vote_against, obj)
+                    }
+                }
+            }
+            //  保存缓存
+            pAppCache.saveObjectCacheToFile()
+            //  返回结果
+            return@then resultHash
+        }
+    }
 
     /**
      *  (private) 查询指定对象ID列表的所有对象信息，返回 Hash。 格式：{对象ID=>对象信息, ...}
@@ -855,12 +990,12 @@ class ChainObjectManager {
      *
      *  REMARK：不处理异常，在外层 VC 逻辑中处理。外部需要 catch 该 promise。
      */
-    fun queryAllObjectsInfo(object_id_array: JSONArray, cache: MutableMap<String, JSONObject>?, key: String?, skipQueryCache: Boolean): Promise {
+    fun queryAllObjectsInfo(object_id_array: JSONArray, cache: MutableMap<String, JSONObject>?, key: String?, skipQueryCache: Boolean, skipCacheIdHash: JSONObject?): Promise {
 
-        var resultHash = JSONObject()
+        val resultHash = JSONObject()
 
         //  要查询的数据为空，则返回空的 Hash。
-        if (object_id_array == null || object_id_array.length() <= 0) {
+        if (object_id_array.length() <= 0) {
             return Promise._resolve(resultHash)
         }
 
@@ -870,18 +1005,23 @@ class ChainObjectManager {
             queryArray.putAll(object_id_array)
         } else {
             //  从缓存加载
-            var pAppCache = AppCacheManager.sharedAppCacheManager()
+            val pAppCache = AppCacheManager.sharedAppCacheManager()
             val now_ts = Utils.now_ts()
             for (object_id in object_id_array.forin<String>()) {
-                val obj = pAppCache.get_object_cache_ts(object_id!!, now_ts)
-                if (obj != null) {
-                    _cacheObjectID2ObjectHash[object_id] = obj  //  add to memory cache: id hash
-                    if (cache != null && key != null) {
-                        cache[obj.getString(key)] = obj         //  add to memory cache: key hash
-                    }
-                    resultHash.put(object_id, obj)
-                } else {
+                if (skipCacheIdHash != null && skipCacheIdHash.has(object_id)) {
+                    //  部分ID跳过缓存
                     queryArray.put(object_id)
+                } else {
+                    val obj = pAppCache.get_object_cache_ts(object_id!!, now_ts)
+                    if (obj != null) {
+                        _cacheObjectID2ObjectHash[object_id] = obj  //  add to memory cache: id hash
+                        if (cache != null && key != null) {
+                            cache[obj.getString(key)] = obj         //  add to memory cache: key hash
+                        }
+                        resultHash.put(object_id, obj)
+                    } else {
+                        queryArray.put(object_id)
+                    }
                 }
             }
             //  从缓存获取完毕，直接返回。
@@ -898,7 +1038,7 @@ class ChainObjectManager {
             val json_array = data_array as JSONArray
 
             //  更新缓存 和 结果
-            var pAppCache = AppCacheManager.sharedAppCacheManager()
+            val pAppCache = AppCacheManager.sharedAppCacheManager()
             for (obj in json_array) {
                 if (obj == null) {
                     continue
@@ -921,15 +1061,23 @@ class ChainObjectManager {
     }
 
     fun queryAllAccountsInfo(account_id_array: JSONArray): Promise {
-        return queryAllObjectsInfo(account_id_array, _cacheAccountName2ObjectHash, "name", false)
+        return queryAllObjectsInfo(account_id_array, _cacheAccountName2ObjectHash, "name", false, null)
     }
 
     fun queryAllAssetsInfo(asset_id_array: JSONArray): Promise {
-        return queryAllObjectsInfo(asset_id_array, _cacheAssetSymbol2ObjectHash, "symbol", false)
+        return queryAllObjectsInfo(asset_id_array, _cacheAssetSymbol2ObjectHash, "symbol", false, null)
     }
 
     fun queryAllGrapheneObjects(id_array: JSONArray): Promise {
-        return queryAllObjectsInfo(id_array, null, null, false)
+        return queryAllObjectsInfo(id_array, null, null, false, null)
+    }
+
+    fun queryAllGrapheneObjectsSkipCache(id_array: JSONArray): Promise {
+        return queryAllObjectsInfo(id_array, null, null, true, null)
+    }
+
+    fun queryAllGrapheneObjects(id_array: JSONArray, skipCacheIdHash: JSONObject?): Promise {
+        return queryAllObjectsInfo(id_array, null, null, false, skipCacheIdHash)
     }
 
     /**
@@ -1036,7 +1184,7 @@ class ChainObjectManager {
 
                     if (fill_price != null) {
                         val n_price = OrgUtils.calcPriceFromPriceObject(fill_price, tradingPair._quoteId, tradingPair._quotePrecision, tradingPair._basePrecision, set_divide_precision = false)
-                        price = n_price.toDouble()
+                        price = n_price!!.toDouble()
                     } else {
                         val cost_amount = pays.getLong("amount")
                         val cost_real: Double = cost_amount / tradingPair._basePrecisionPow
@@ -1056,7 +1204,7 @@ class ChainObjectManager {
 
                     if (fill_price != null) {
                         val n_price = OrgUtils.calcPriceFromPriceObject(fill_price, tradingPair._quoteId, tradingPair._quotePrecision, tradingPair._basePrecision, set_divide_precision = false)
-                        price = n_price.toDouble()
+                        price = n_price!!.toDouble()
                     } else {
                         val gain_amount = op.getJSONObject("receives").getLong("amount")
                         val gain_real: Double = gain_amount / tradingPair._basePrecisionPow
@@ -1070,6 +1218,115 @@ class ChainObjectManager {
     }
 
     /**
+     *  (public) 查询爆仓单
+     */
+    fun queryCallOrders(tradingPair: TradingPair, number: Int): Promise {
+        if (!tradingPair._isCoreMarket) {
+            return Promise._resolve(JSONObject())
+        }
+        val conn = GrapheneConnectionManager.sharedGrapheneConnectionManager().any_connection()
+
+        val bitasset_data_id = getChainObjectByID(tradingPair._smartAssetId).getString("bitasset_data_id")
+        val p1 = conn.async_exec_db("get_objects", jsonArrayfrom(jsonArrayfrom(bitasset_data_id))).then {
+            return@then (it as JSONArray).getJSONObject(0)
+        }
+        val p2 = conn.async_exec_db("get_call_orders", jsonArrayfrom(tradingPair._smartAssetId, number))
+
+        return Promise.all(p1, p2).then { json_array ->
+            val data_array = json_array as JSONArray
+            val bitasset = data_array.getJSONObject(0)
+            val callorders = data_array.getJSONArray(1)
+
+            //  准备参数
+            val debt_precision: Int
+            val collateral_precision: Int
+            val invert: Boolean
+            val roundingMode: Int
+            if (tradingPair._smartAssetId == tradingPair._baseId) {
+                debt_precision = tradingPair._basePrecision
+                collateral_precision = tradingPair._quotePrecision
+                invert = false
+                roundingMode = BigDecimal.ROUND_DOWN
+            } else {
+                debt_precision = tradingPair._quotePrecision
+                collateral_precision = tradingPair._basePrecision
+                invert = true   //  force sell `quote` is force buy action
+                roundingMode = BigDecimal.ROUND_UP
+            }
+
+            //  计算喂价
+            val current_feed = bitasset.getJSONObject("current_feed")
+            val settlement_price = current_feed.getJSONObject("settlement_price")
+            val feed_price = OrgUtils.calcPriceFromPriceObject(settlement_price, tradingPair._sbaAssetId, collateral_precision, debt_precision, false, roundingMode, false)
+
+            //  REMARK：没人喂价 or 所有喂价都过期，则存在 base和quote 都为 0 的情况。即：无喂价。
+            var feed_price_market: BigDecimal? = null
+            var call_price_market: BigDecimal? = null
+            var call_price = BigDecimal.ZERO
+            var total_sell_amount = BigDecimal.ZERO
+            var n_mcr: BigDecimal? = null
+            var n_mssr: BigDecimal? = null
+            var settlement_account_number = 0
+
+            if (feed_price != null) {
+                feed_price_market = OrgUtils.calcPriceFromPriceObject(settlement_price, tradingPair._quoteId, tradingPair._quotePrecision, tradingPair._basePrecision, false, roundingMode, true)
+
+                n_mssr = bigDecimalfromAmount(current_feed.getString("maximum_short_squeeze_ratio"), 3)
+                n_mcr = bigDecimalfromAmount(current_feed.getString("maintenance_collateral_ratio"), 3)
+
+                //  1、计算爆仓成交价   feed / mssr
+                call_price = feed_price.divide(n_mssr, kBigDecimalDefaultMaxPrecision, kBigDecimalDefaultRoundingMode)
+                call_price_market = call_price
+                if (invert) {
+                    call_price_market = BigDecimal.ONE.divide(call_price, kBigDecimalDefaultMaxPrecision, kBigDecimalDefaultRoundingMode)
+                }
+
+                //  2、计算爆仓单数量
+                val zero = BigDecimal.ZERO
+                val settlement_handler = BigDecimalHandler(BigDecimal.ROUND_UP, debt_precision)
+
+                for (item in callorders.forin<JSONObject>()) {
+                    val callorder = item!!
+                    val n_settlement_trigger_price = OrgUtils.calcSettlementTriggerPrice(callorder.getString("debt"),
+                            callorder.getString("collateral"), debt_precision, collateral_precision,
+                            n_mcr, false, settlement_handler, false)
+                    //  强制平仓
+                    if (feed_price < n_settlement_trigger_price) {
+                        val sell_amount = OrgUtils.calcSettlementSellNumbers(callorder, debt_precision, collateral_precision, feed_price, call_price, n_mcr, n_mssr)
+                        //  小数点精度可能有细微误差
+                        if (sell_amount < zero) {
+                            continue
+                        }
+                        total_sell_amount = total_sell_amount.add(sell_amount)
+                        ++settlement_account_number;
+                    }
+                }
+            }
+
+            if (feed_price_market != null) {
+                assert(n_mssr != null && n_mcr != null && call_price_market != null)
+                return@then JSONObject().apply {
+                    put("feed_price_market", feed_price_market)
+                    put("feed_price", feed_price)               //  需要手动翻转价格
+
+                    put("call_price_market", call_price_market)
+                    put("call_price", call_price)               //  需要手动翻转价格
+
+                    put("total_sell_amount", total_sell_amount)
+                    put("total_buy_amount", total_sell_amount.multiply(call_price))
+
+                    put("invert", invert)
+                    put("mcr", n_mcr)
+                    put("mssr", n_mssr)
+                    put("settlement_account_number", settlement_account_number)
+                }
+            } else {
+                return@then JSONObject()
+            }
+        }
+    }
+
+    /**
      *  (public) 查询限价单
      */
     fun queryLimitOrders(tradingPair: TradingPair, number: Int): Promise {
@@ -1077,8 +1334,8 @@ class ChainObjectManager {
 
         return conn.async_exec_db("get_limit_orders", jsonArrayfrom(tradingPair._baseId, tradingPair._quoteId, number)).then { data_array ->
 
-            var bidArray = JSONArray()
-            var askArray = JSONArray()
+            val bidArray = JSONArray()
+            val askArray = JSONArray()
 
             val base_id = tradingPair._baseId
 
@@ -1087,7 +1344,7 @@ class ChainObjectManager {
 
             val data_array = data_array as JSONArray
             for (i in 0 until data_array.length()) {
-                var limitOrder = data_array.getJSONObject(i)
+                val limitOrder = data_array.getJSONObject(i)
                 val sell_price = limitOrder.getJSONObject("sell_price")
                 val base = sell_price.getJSONObject("base")
                 val quote = sell_price.getJSONObject("quote")
@@ -1238,7 +1495,7 @@ class ChainObjectManager {
         for (i in 0..10) {
             query_oid_list.put("2.13.${latest_oid - i}")
         }
-        return queryAllObjectsInfo(query_oid_list, null, null, false).then {
+        return queryAllObjectsInfo(query_oid_list, null, null, false, null).then {
             val asset_hash = it as JSONObject
             var budget_object: JSONObject? = null
             for (check_oid in query_oid_list.forin<String>()) {
@@ -1306,7 +1563,7 @@ class ChainObjectManager {
         //  当前帐号设置了代理，继续递归查询。
         //  TODO:fowallet 统计数据
         Logger.d("[Voting Proxy] Query proxy account: ${voting_account_id}, level: ${level + 1}")
-        return queryAllObjectsInfo(jsonArrayfrom(voting_account_id), null, null, true).then {
+        return queryAllObjectsInfo(jsonArrayfrom(voting_account_id), null, null, true, null).then {
             val data_hash = it as JSONObject
             var proxy_account_data = data_hash.getJSONObject(voting_account_id)
             return@then _queryAccountVotingInfosCore(proxy_account_data, resultHash, level + 1, checked_hash)

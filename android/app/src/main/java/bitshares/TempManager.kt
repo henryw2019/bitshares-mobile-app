@@ -1,7 +1,6 @@
 package bitshares
 
 import android.support.v7.app.AppCompatActivity
-import org.json.JSONArray
 import org.json.JSONObject
 
 class TempManager {
@@ -11,24 +10,6 @@ class TempManager {
         fun sharedTempManager(): TempManager {
             return _sharedTempManager
         }
-    }
-
-    private var args: Any? = null                    //  界面跳转的参数信息(直接保存在这里）
-
-    fun set_args(value: Any?) {
-        args = value
-    }
-
-    fun get_args(): Any? {
-        return args
-    }
-
-    fun get_args_as_JSONArray(): JSONArray {
-        return get_args() as JSONArray
-    }
-
-    fun get_args_as_JSONObject(): JSONObject {
-        return get_args() as JSONObject
     }
 
     //  ---- 账号搜索 callback ----

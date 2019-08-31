@@ -40,6 +40,7 @@ class FragmentAssets : BtsppFragment() {
     private var _isSelfAccount: Boolean = false
     private var _showAllAssets: Boolean = true
     private var _assetDataArray = mutableListOf<JSONObject>()
+    private var _total_estimate_value: Double? = null
 
     //  记账单位 默认CNY
     private var _displayEstimateAsset: String = ""
@@ -122,7 +123,10 @@ class FragmentAssets : BtsppFragment() {
                 //  REMARK：collateral_asset_id 是 debt 的背书资产，那么用户的资产余额里肯定有 抵押中 的背书资产。
                 val debt_precision = asset_detail.getInt("precision")
                 val collateral_precision = collateral_asset.getInt("precision")
-                val trigger_price = OrgUtils.calcSettlementTriggerPrice(asset_call_price, collateral_precision, debt_precision)
+                val mcr = chainMgr.getChainObjectByID(asset_detail.getString("bitasset_data_id")).getJSONObject("current_feed").getString("maintenance_collateral_ratio")
+                val _mcr = bigDecimalfromAmount(mcr, 3)
+                val trigger_price = OrgUtils.calcSettlementTriggerPrice(asset_call_order.getString("debt"), asset_call_order.getString("collateral"), debt_precision, collateral_precision, _mcr, false, null, true)
+
                 optional_number++
                 asset_final.put("trigger_price", trigger_price.toPriceAmountString())
             }
@@ -172,7 +176,7 @@ class FragmentAssets : BtsppFragment() {
             onEstimateDataReached()
             return@then null
         }.catch {
-            showToast(_ctx!!.resources.getString(R.string.myAssetsPageNetworkingExceptionAndEstimatingFailed))
+            showToast(_ctx!!.resources.getString(R.string.kVcAssetTipErrorEstimating))
         }
     }
 
@@ -246,9 +250,22 @@ class FragmentAssets : BtsppFragment() {
         }
         _assetDataArray.sortWith(sorter)
 
+        _total_estimate_value = total_estimate_value
+
         //  刷新UI
         refreshUI()
-        activity!!.findViewById<TextView>(R.id.label_total_value).text = OrgUtils.formatFloatValue(total_estimate_value, display_precision)
+        refreshUI_TotalValue()
+    }
+
+    private fun refreshUI_TotalValue(textView: TextView? = null) {
+        if (!isAdded) {
+            return
+        }
+        _total_estimate_value?.let { total_estimate_value ->
+            val display_precision = ChainObjectManager.sharedChainObjectManager().getAssetBySymbol(_displayEstimateAsset).getInt("precision")
+            val label = textView ?: _view!!.findViewById<TextView>(R.id.label_total_value)
+            label.text = OrgUtils.formatFloatValue(total_estimate_value, display_precision)
+        }
     }
 
     private fun createCell(ctx: Context, layout_params: LinearLayout.LayoutParams, container: LinearLayout, data: JSONObject) {
@@ -279,10 +296,10 @@ class FragmentAssets : BtsppFragment() {
             ly1.addView(tv2)
         }
 
-        val estimate_value = data.optString("estimate_value")
+        val estimate_value = data.optString("estimate_value", null)
         val tv3 = TextView(ctx)
-        if (estimate_value == null || estimate_value == "") {
-            tv3.text = ctx.resources.getString(R.string.myAssetsPageEstimating)
+        if (estimate_value == null) {
+            tv3.text = ctx.resources.getString(R.string.kVcAssetTipsEstimating)
             tv3.setTextColor(resources.getColor(R.color.theme01_textColorMain))
         } else {
             tv3.text = "≈ ${estimate_value}${SettingManager.sharedSettingManager().getEstimateAssetSymbol()}"
@@ -307,14 +324,14 @@ class FragmentAssets : BtsppFragment() {
 
         var value = OrgUtils.formatAssetString(data.getString("balance"), data.getInt("precision"))
         val tv5 = TextView(ctx)
-        tv5.text = "${R.string.myAssetsPageAvailable.xmlstring(ctx)} ${value}"
+        tv5.text = "${R.string.kLableAvailable.xmlstring(ctx)} ${value}"
         tv5.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13.0f)
         tv5.setTextColor(resources.getColor(R.color.theme01_textColorNormal))
         tv5.gravity = Gravity.CENTER_VERTICAL
 
         value = OrgUtils.formatAssetString(data.getString("limit_order_value"), data.getInt("precision"))
         val tv6 = TextView(ctx)
-        tv6.text = "${R.string.myAssetsPageHangOrder.xmlstring(ctx)} ${value}"
+        tv6.text = "${R.string.kVcAssetOnOrder.xmlstring(ctx)} ${value}"
         tv6.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13.0f)
         tv6.setTextColor(resources.getColor(R.color.theme01_textColorNormal))
         tv6.gravity = Gravity.CENTER_VERTICAL or Gravity.RIGHT
@@ -360,11 +377,11 @@ class FragmentAssets : BtsppFragment() {
 
                 val raw_value = data.getString(key)
                 if (key == "call_order_value") {
-                    dynamic_view.text = "${R.string.myAssetsPageCollateral.xmlstring(ctx)} ${OrgUtils.formatAssetString(raw_value, data.getInt("precision"))}"
+                    dynamic_view.text = "${R.string.kVcAssetColl.xmlstring(ctx)} ${OrgUtils.formatAssetString(raw_value, data.getInt("precision"))}"
                 } else if (key == "debt_value") {
-                    dynamic_view.text = "${R.string.myAssetsPageDebt.xmlstring(ctx)} ${OrgUtils.formatAssetString(raw_value, data.getInt("precision"))}"
+                    dynamic_view.text = "${R.string.kVcAssetDebt.xmlstring(ctx)} ${OrgUtils.formatAssetString(raw_value, data.getInt("precision"))}"
                 } else {
-                    dynamic_view.text = "${R.string.myAssetsPageForcedLiquidationPrice2.xmlstring(ctx)} ${raw_value}"
+                    dynamic_view.text = "${R.string.kVcAssetCallPrice.xmlstring(ctx)} ${raw_value}"
                 }
 
                 //  增加索引
@@ -385,14 +402,14 @@ class FragmentAssets : BtsppFragment() {
             layout_tv7.setMargins(0, 0, toDp(60.0f), 0)
 
             val tv7 = TextView(ctx)
-            tv7.text = R.string.serviceMainPageTransfer.xmlstring(ctx)
+            tv7.text = R.string.kVcActivityTypeTransfer.xmlstring(ctx)
             tv7.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14.0f)
             tv7.setTextColor(resources.getColor(R.color.theme01_color03))
             tv7.gravity = Gravity.CENTER_VERTICAL or Gravity.RIGHT
             tv7.layoutParams = layout_tv7
 
             val tv8 = TextView(ctx)
-            tv8.text = R.string.myAssetsPageTrading.xmlstring(ctx)
+            tv8.text = R.string.kVcAssetBtnTrade.xmlstring(ctx)
             tv8.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14.0f)
             tv8.setTextColor(resources.getColor(R.color.theme01_color03))
             tv8.gravity = Gravity.CENTER_VERTICAL or Gravity.LEFT
@@ -497,7 +514,7 @@ class FragmentAssets : BtsppFragment() {
 
             if (!_showAllAssets && showIndex == kAppUserAssetDefaultShowNum) {
                 val viewAll = TextView(_ctx!!)
-                viewAll.text = _ctx!!.resources.getString(R.string.myAssetsPageViewTotalAssetsInfo)
+                viewAll.text = _ctx!!.resources.getString(R.string.kVcAssetViewAllAssets)
                 viewAll.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15.0f)
                 viewAll.setTextColor(resources.getColor(R.color.theme01_color03))
                 viewAll.gravity = Gravity.CENTER or Gravity.CENTER_VERTICAL
@@ -516,6 +533,9 @@ class FragmentAssets : BtsppFragment() {
     }
 
     private fun refreshUI() {
+        if (!isAdded) {
+            return
+        }
         val lay: LinearLayout = _view!!.findViewById(R.id.layout_my_assets_from_my_fragment)
         lay.removeAllViews()
         val layout_params = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, toDp(30f))
@@ -529,9 +549,9 @@ class FragmentAssets : BtsppFragment() {
         _ctx = inflater.context
 
         val v: View = inflater.inflate(R.layout.fragment_assets, container, false)
-        val ly: LinearLayout = v.findViewById(R.id.layout_my_assets_from_my_fragment)
-
-        v.findViewById<TextView>(R.id.label_total_title).text = "${_ctx!!.resources.getString(R.string.myAssetsPageTotalAsset)}(${SettingManager.sharedSettingManager().getEstimateAssetSymbol()})"
+        val ly = v.findViewById<LinearLayout>(R.id.layout_my_assets_from_my_fragment)
+        v.findViewById<TextView>(R.id.label_total_title).text = String.format(_ctx!!.resources.getString(R.string.kVcAssetTotalValue), SettingManager.sharedSettingManager().getEstimateAssetSymbol())
+        refreshUI_TotalValue(v.findViewById<TextView>(R.id.label_total_value))
 
         val layout_params = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, toDp(30f))
         layout_params.gravity = Gravity.CENTER_VERTICAL

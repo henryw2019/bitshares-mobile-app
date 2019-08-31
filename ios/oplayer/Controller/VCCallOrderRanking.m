@@ -127,6 +127,7 @@
     
     NSMutableArray*     _dataCallOrders;
     NSDecimalNumber*    _feedPriceInfo;
+    NSDecimalNumber*    _mcr;
 }
 
 @end
@@ -143,6 +144,7 @@
     _lbEmptyOrder = nil;
     _dataCallOrders = nil;
     _feedPriceInfo = nil;
+    _mcr = nil;
     _tradingPair = nil;
     _asset = nil;
     _owner = nil;
@@ -158,6 +160,7 @@
         _asset = asset;
         _dataCallOrders = [NSMutableArray array];
         _feedPriceInfo = nil;
+        _mcr = nil;
     }
     return self;
 }
@@ -208,6 +211,10 @@
     }
     _feedPriceInfo = [_tradingPair calcShowFeedInfo:@[feedPriceData]];
     
+    //  计算MCR
+    id mcr = [[feedPriceData objectForKey:@"current_feed"] objectForKey:@"maintenance_collateral_ratio"];
+    _mcr = [NSDecimalNumber decimalNumberWithMantissa:[mcr unsignedLongLongValue] exponent:-3 isNegative:NO];
+    
     //  动态设置UI的可见性（没有抵押信息的情况几乎不存在）
     if ([_dataCallOrders count] > 0){
         _mainTableView.hidden = NO;
@@ -249,8 +256,8 @@
         return;
     }
     //  [统计]
-    [Answers logCustomEventWithName:@"qa_tip_click" customAttributes:@{@"qa":@"qa_feedprice"}];
-    VCBtsaiWebView* vc = [[VCBtsaiWebView alloc] initWithUrl:@"http://btspp.io/qam.html#qa_feedprice"];
+    [OrgUtils logEvents:@"qa_tip_click" params:@{@"qa":@"qa_feedprice"}];
+    VCBtsaiWebView* vc = [[VCBtsaiWebView alloc] initWithUrl:@"https://btspp.io/qam.html#qa_feedprice"];
     vc.title = NSLocalizedString(@"kVcTitleWhatIsFeedPrice", @"什么是喂价？");
     [_owner pushViewController:vc vctitle:nil backtitle:kVcDefaultBackTitleName];
 }
@@ -271,7 +278,7 @@
         
         id asset = [[ChainObjectManager sharedChainObjectManager] getAssetBySymbol:[_asset objectForKey:@"symbol"]];
         assert(asset);
-        titleLabel.text = [NSString stringWithFormat:@"%@ %@", NSLocalizedString(@"kVcRankCurrentFeedPrice", @"当前喂价"), _feedPriceInfo];
+        titleLabel.text = [NSString stringWithFormat:@"%@ %@", NSLocalizedString(@"kVcRankCurrentFeedPrice", @"当前喂价"), [OrgUtils formatFloatValue:_feedPriceInfo]];
         
         [myView addSubview:titleLabel];
         
@@ -311,6 +318,10 @@
         cell.accessoryType = UITableViewCellAccessoryNone;
         cell.backgroundColor = [UIColor clearColor];
     }
+    
+    cell.debt_precision = _tradingPair.basePrecision;
+    cell.collateral_precision = _tradingPair.quotePrecision;
+    cell.mcr = _mcr;
     cell.showCustomBottomLine = YES;
     cell.feedPriceInfo = _feedPriceInfo;
     [cell setItem:[_dataCallOrders objectAtIndex:indexPath.row]];

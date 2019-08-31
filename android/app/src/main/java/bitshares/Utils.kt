@@ -21,6 +21,7 @@ import java.io.InputStreamReader
 import java.math.BigDecimal
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.min
 
@@ -134,6 +135,48 @@ class Utils {
         }
 
         /**
+         *  (public) 原像格式是否正确　TODO:fowallet 格式细节
+         *  格式：20位以上，包含大写字母和数字。
+         */
+        fun isValidHTCLPreimageFormat(preimage: String?): Boolean {
+            if (preimage == null) {
+                return false
+            }
+            if (preimage.length < 20) { //TODO:fowallet cfg
+                return false
+            }
+
+            //  大写、数字检测
+            val format1 = ".*[A-Z]+.*"
+            val format3 = ".*[0-9]+.*"
+
+            for (format in arrayOf(format1, format3)) {
+                if (!isRegularMatch(preimage, format)) {
+                    return false
+                }
+            }
+            return true
+        }
+
+        /**
+         *  是否是有效的16进制字符串检测。
+         */
+        fun isValidHexString(hexstring: String?): Boolean {
+            if (hexstring == null) {
+                return false
+            }
+            if (hexstring.length % 2 != 0) {
+                return false
+            }
+            //  A-F、a-f、0-9 组成
+            val pre = "^[A-Fa-f0-9]+$"
+            if (!isRegularMatch(hexstring, pre)) {
+                return false
+            }
+            return true
+        }
+
+        /**
          * text是否匹配正则
          */
         private fun isRegularMatch(text: String, format: String): Boolean {
@@ -227,11 +270,82 @@ class Utils {
          *  是否是BTS终身会员判断
          */
         fun isBitsharesVIP(membership_expiration_date_string: String?): Boolean {
-            if (membership_expiration_date_string != null && membership_expiration_date_string != "") {
+            return if (membership_expiration_date_string != null && membership_expiration_date_string != "") {
                 //  会员过期日期为 -1 则为终身会员。
-                return parseBitsharesTimeString(membership_expiration_date_string) < 0
+                parseBitsharesTimeString(membership_expiration_date_string) < 0
             } else {
-                return false
+                false
+            }
+        }
+
+        /**
+         *  (private) 计算已经解冻的余额数量。（可提取的）REMARK：按照币龄解冻策略
+         */
+        private fun _calcVestingBalanceAmount_cdd_vesting_policy(policy: JSONArray, vesting: JSONObject): Long {
+            //  TODO:fowallet 其他的类型不支持。
+            assert(policy.getInt(0) == EBitsharesVestingPolicy.ebvp_cdd_vesting_policy.value)
+            val policy_data = policy.getJSONObject(1)
+
+            //  vesting seconds     REMARK：解冻周期最低1秒。
+            val vesting_seconds = max(policy_data.getLong("vesting_seconds"), 1L)
+
+            //  last update timestamp
+            val coin_seconds_earned_last_update_ts = parseBitsharesTimeString(policy_data.getString("coin_seconds_earned_last_update"))
+            val now_ts = now_ts()
+
+            //  my balance & already earned seconds
+            val total_balance_amount = vesting.getJSONObject("balance").getString("amount").toLong()
+            val coin_seconds_earned = policy_data.getString("coin_seconds_earned").toLong()
+
+            //  recalc real 'coin_seconds_earned' value
+            var final_earned = coin_seconds_earned
+            if (now_ts > coin_seconds_earned_last_update_ts) {
+                val delta_seconds = now_ts - coin_seconds_earned_last_update_ts
+                val delta_coin_seconds = total_balance_amount * delta_seconds
+                val coin_seconds_earned_max = total_balance_amount * vesting_seconds
+                final_earned = min(coin_seconds_earned + delta_coin_seconds, coin_seconds_earned_max)
+            }
+
+            val withdraw_max = floor(final_earned.toDouble() / vesting_seconds.toDouble()).toLong()
+            assert(withdraw_max <= total_balance_amount)
+
+            return withdraw_max
+        }
+
+        /**
+         *  (private) 计算已经解冻的余额数量。（可提取的）REMARK：立即解冻策略
+         */
+        private fun _calcVestingBalanceAmount_instant_vesting_policy(policy: JSONArray, vesting: JSONObject): Long {
+            //{
+            //    balance =     {
+            //        amount = 109944860;
+            //        "asset_id" = "1.3.4072";
+            //    };
+            //    "balance_type" = "market_fee_sharing";
+            //    id = "1.13.24212";
+            //    owner = "1.2.114363";
+            //    policy =     (
+            //                  2,
+            //                  {
+            //                  }
+            //                  );
+            //}
+            return vesting.getJSONObject("balance").getString("amount").toLong()
+        }
+
+        /**
+         *  (public) 计算已经解冻的余额数量。（可提取的）
+         */
+        fun calcVestingBalanceAmount(vesting: JSONObject): Long {
+            val policy = vesting.getJSONArray("policy")
+            return when (policy.getInt(0)) {
+                EBitsharesVestingPolicy.ebvp_cdd_vesting_policy.value -> _calcVestingBalanceAmount_cdd_vesting_policy(policy, vesting)
+                EBitsharesVestingPolicy.ebvp_instant_vesting_policy.value -> _calcVestingBalanceAmount_instant_vesting_policy(policy, vesting)
+                else -> {
+                    //  TODO:ebvp_linear_vesting_policy
+                    assert(false)
+                    0
+                }
             }
         }
 
@@ -252,7 +366,7 @@ class Utils {
             if (time == "") {
                 return "00-00 00:00"
             }
-            var ts = parseBitsharesTimeString(time)
+            val ts = parseBitsharesTimeString(time)
             val d = Date(ts * 1000)
             val f = SimpleDateFormat("MM-dd HH:mm")
             val s = f.format(d)
@@ -262,16 +376,16 @@ class Utils {
         /**
          *  格式化：交易历史时间显示格式  24小时内，直接显示时分秒，24小时以外了则显示 x天前。REMARK：以当前时区格式化，BTS默认时间是UTC。北京时间当前时区会+8。
          */
-        fun fmtTradeHistoryTimeShowString(time: String): String {
-            var ts = parseBitsharesTimeString(time)
-            var now_ts = now_ts()
+        fun fmtTradeHistoryTimeShowString(ctx: Context, time: String): String {
+            val ts = parseBitsharesTimeString(time)
+            val now_ts = now_ts()
             val diff_ts = now_ts - ts
             if (diff_ts < 86400) {
                 val d = Date(ts * 1000)
                 val f = SimpleDateFormat("HH:mm:ss")
                 return f.format(d)
             } else {
-                return "${(diff_ts / 86400).toLong()}天前"
+                return String.format(R.string.kLabelTradeHisNdayAgo.xmlstring(ctx), (diff_ts / 86400).toInt())
             }
         }
 
@@ -279,7 +393,7 @@ class Utils {
          * 格式化：限价单过期日期显示格式。REMARK：以当前时区格式化，BTS默认时间是UTC。北京时间当前时区会+8。
          */
         fun fmtLimitOrderTimeShowString(time: String): String {
-            var ts = parseBitsharesTimeString(time)
+            val ts = parseBitsharesTimeString(time)
             val d = Date(ts * 1000)
             val f = SimpleDateFormat("yyyy/MM/dd")
             val s = f.format(d)
@@ -294,13 +408,31 @@ class Utils {
             //  REMARK：本地时间不准确的情况下该差值可能为负数，故取 MAX。
             val diff_ts = max(now_ts() - ts, 0L)
             if (diff_ts < 60) {
-                return "${diff_ts}${R.string.feedPricePageAgeSec.xmlstring(ctx)}${R.string.feedPricePageAge.xmlstring(ctx)}"
+                return String.format(R.string.kVcFeedNsecAgo.xmlstring(ctx), diff_ts)
             } else if (diff_ts < 3600) {
-                return "${(diff_ts / 60).toInt()}${R.string.feedPricePageAgeMin.xmlstring(ctx)}${R.string.feedPricePageAge.xmlstring(ctx)}"
+                return String.format(R.string.kVcFeedNminAgo.xmlstring(ctx), (diff_ts / 60).toInt())
             } else if (diff_ts < 86400) {
-                return "${(diff_ts / 3600).toInt()}${R.string.feedPricePageAgeHour.xmlstring(ctx)}${R.string.feedPricePageAge.xmlstring(ctx)}"
+                return String.format(R.string.kVcFeedNhourAgo.xmlstring(ctx), (diff_ts / 3600).toInt())
             } else {
-                return "${(diff_ts / 86400).toInt()}${R.string.feedPricePageAgeDay.xmlstring(ctx)}${R.string.feedPricePageAge.xmlstring(ctx)}"
+                return String.format(R.string.kVcFeedNDayAgo.xmlstring(ctx), (diff_ts / 86400).toInt())
+            }
+        }
+
+        /**
+         *  格式化：解冻周期。
+         */
+        fun fmtVestingPeriodDateString(ctx: Context, seconds: Long): String {
+            if (seconds < 60) {
+                return String.format(R.string.kVestingCellPeriodSec.xmlstring(ctx), seconds.toString())
+            } else if (seconds < 3600) {
+                val min = (seconds / 60).toInt()
+                return String.format(R.string.kVestingCellPeriodMin.xmlstring(ctx), min.toString())
+            } else if (seconds < 86400) {
+                val hour = (seconds / 3600).toInt()
+                return String.format(R.string.kVestingCellPeriodHour.xmlstring(ctx), hour.toString())
+            } else {
+                val day = (seconds / 86400).toInt()
+                return String.format(R.string.kVestingCellPeriodDay.xmlstring(ctx), day.toString())
             }
         }
 
@@ -327,7 +459,7 @@ class Utils {
                 return package_info.versionName
             } catch (e: PackageManager.NameNotFoundException) {
                 //  TODO:代码里内置版本号，每次都要修改，虽然仅仅在获取异常的时候才会用到，考虑放到config。？
-                return "1.6"
+                return "2.6"
             }
         }
 
@@ -488,6 +620,21 @@ class Utils {
                 return true
             }
             return false
+        }
+
+        /**
+         * 读取剪贴板内容
+         */
+        fun readFromClipboard(ctx: Context): String {
+            val mgr = ctx.getSystemService(CLIPBOARD_SERVICE) as? ClipboardManager
+            if (mgr != null && mgr.hasPrimaryClip()) {
+                val data = mgr.primaryClip
+                if (data != null) {
+                    val item = data.getItemAt(0)
+                    return item.coerceToText(ctx).toString()
+                }
+            }
+            return ""
         }
     }
 }

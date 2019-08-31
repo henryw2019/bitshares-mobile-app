@@ -17,6 +17,11 @@ typedef void (^YklUserCallback)(id data);
 @interface OrgUtils : NSObject
 
 /**
+ *  日志统计
+ */
++ (void)logEvents:(NSString*)eventname params:(NSDictionary*)params;
+
+/**
  *  示石墨烯网络错误信息（部分错误特殊处理）
  */
 + (void)showGrapheneError:(id)error;
@@ -36,6 +41,16 @@ typedef void (^YklUserCallback)(id data);
  *  REMARK：判断规则，只要权限主题超过1个即视为多签。即：account_auths、address_auths、key_auths数量之和大于1.
  */
 + (BOOL)isMutilSignPermission:(NSDictionary*)raw_permission_json;
+
+/**
+ *  辅助 - 根据字符串获取 NSDecimalNumber 对象，如果字符串以小数点结尾，则默认添加0。
+ */
++ (NSDecimalNumber*)auxGetStringDecimalNumberValue:(NSString*)str;
+
+/**
+ *  更新小数点为APP默认小数点样式（可能和输入法中下小数点不同，比如APP里是`.`号，而输入法则是`,`号。
+ */
++ (void)correctTextFieldDecimalSeparatorDisplayStyle:(UITextField*)textField;
 
 /**
  *  对于价格 or 数量类型的输入，判断是否是有效输入等。
@@ -66,6 +81,17 @@ typedef void (^YklUserCallback)(id data);
  *  (public) 钱包模式：钱包密码格式是否正确
  */
 + (BOOL)isValidBitsharesWalletPassword:(NSString*)password;
+
+/**
+ *  (public) 原像格式是否正确
+ *  格式：20位以上，包含大写字母和数字。
+ */
++ (BOOL)isValidHTCLPreimageFormat:(NSString*)preimage;
+
+/**
+ *  是否是有效的16进制字符串检测。
+ */
++ (BOOL)isValidHexString:(NSString*)hexstring;
 
 /**
  *  解析 BTS 网络时间字符串，返回 1970 到现在的秒数。格式：2018-06-04T13:03:57。
@@ -114,6 +140,23 @@ typedef void (^YklUserCallback)(id data);
 + (NSDictionary*)calcOrderDirectionInfos:(NSDictionary*)priority_hash pay_asset_info:(id)pay_asset_info receive_asset_info:(id)receive_asset_info;
 
 /**
+ *  获取 worker 类型。0:refund 1:vesting 2:burn
+ */
++ (NSInteger)getWorkerType:(NSDictionary*)worker_json_object;
+
+/**
+ *  从操作的结果结构体中提取新对象ID。
+ */
++ (NSString*)extractNewObjectIDFromOperationResult:(id)operation_result;
+
+/**
+ *  从广播交易结果获取新生成的对象ID号（比如新的订单号、新HTLC号等）
+ *  考虑到数据结构可能变更，加各种safe判断。
+ *  REMARK：仅考虑一个 op 的情况，如果一个交易包含多个 op 则不支持。
+ */
++ (NSString*)extractNewObjectID:(id)transaction_confirmation_list;
+
+/**
  *  提取OPDATA中所有的石墨烯ID信息。
  */
 + (void)extractObjectID:(NSUInteger)opcode opdata:(id)opdata container:(NSMutableDictionary*)container;
@@ -121,7 +164,7 @@ typedef void (^YklUserCallback)(id data);
 /**
  *  转换OP数据为UI显示数据。
  */
-+ (NSDictionary*)processOpdata2UiData:(NSUInteger)opcode opdata:(id)opdata isproposal:(BOOL)isproposal;
++ (NSDictionary*)processOpdata2UiData:(NSUInteger)opcode opdata:(id)opdata opresult:(id)opresult isproposal:(BOOL)isproposal;
 
 /**
  *  计算资产真实价格
@@ -140,11 +183,33 @@ typedef void (^YklUserCallback)(id data);
                         set_divide_precision:(BOOL)set_divide_precision;
 
 /**
- *  计算抵押资产的强平触发价。
+ *  (public) 计算在爆仓时最少需要卖出的资产数量，如果没设置目标抵押率则全部卖出。如果有设置则根据目标抵押率计算。
  */
-+ (NSDecimalNumber*)calcSettlementTriggerPrice:(NSDictionary*)call_price
++ (NSDecimalNumber*)calcSettlementSellNumbers:(id)call_order
+                               debt_precision:(NSInteger)debt_precision
+                         collateral_precision:(NSInteger)collateral_precision
+                                   feed_price:(NSDecimalNumber*)feed_price
+                                   call_price:(NSDecimalNumber*)call_price
+                                          mcr:(NSDecimalNumber*)mcr
+                                         mssr:(NSDecimalNumber*)mssr;
+
+/**
+ *  (public) 计算强平触发价格。
+ *  call_price = (debt × MCR) ÷ collateral
+ */
++ (NSDecimalNumber*)calcSettlementTriggerPrice:(id)debt_amount
+                                    collateral:(id)collateral_amount
+                                debt_precision:(NSInteger)debt_precision
                           collateral_precision:(NSInteger)collateral_precision
-                                debt_precision:(NSInteger)debt_precision;
+                                         n_mcr:(id)n_mcr
+                                       reverse:(BOOL)reverse
+                                  ceil_handler:(NSDecimalNumberHandler*)ceil_handler
+                          set_divide_precision:(BOOL)set_divide_precision;
+
+/**
+ *  (public) 合并普通盘口信息和爆仓单信息。
+ */
++ (NSDictionary*)mergeOrderBook:(NSDictionary*)normal_order_book settlement_data:(NSDictionary*)settlement_data;
 
 /**
  *  (public) 格式化ASSET_JSON对象为价格字符串，例：2323.32BTS
@@ -155,7 +220,6 @@ typedef void (^YklUserCallback)(id data);
  *  格式化资产显示字符串，保留指定有效精度。带逗号分隔。
  */
 + (NSString*)formatAssetString:(id)amount precision:(NSInteger)precision;
-+ (NSString*)formatAssetString:(id)amount precision:(NSInteger)precision withceil:(BOOL)ceil;
 + (NSString*)formatAssetString:(id)amount asset:(id)asset;
 
 /**
@@ -169,15 +233,12 @@ typedef void (^YklUserCallback)(id data);
 + (NSDecimalNumber*)genAssetAmountDecimalNumber:(id)amount asset:(id)asset;
 
 /**
- *  格式化浮点数，保留指定有效精度。带逗号分隔。
+ *  格式化浮点数，保留指定有效精度，可指定是否带组分割符。
  */
++ (NSString*)formatFloatValue:(double)value precision:(NSInteger)precision usesGroupingSeparator:(BOOL)usesGroupingSeparator;
 + (NSString*)formatFloatValue:(double)value precision:(NSInteger)precision;
-/**
- *  格式化浮点数，保留指定有效精度。带逗号分隔。
- *  ceil    - 是否向上取整，否则向下取整。例子：1.332324，保留4位，向上则为：1.3324，向下则为 1.3323。
- *  REMARK：格式化详细说明 https://www.jianshu.com/p/29ef372c65d3
- */
-+ (NSString*)formatFloatValue:(double)value precision:(NSInteger)precision withceil:(BOOL)ceil;
++ (NSString*)formatFloatValue:(NSDecimalNumber*)value usesGroupingSeparator:(BOOL)usesGroupingSeparator;
++ (NSString*)formatFloatValue:(NSDecimalNumber*)value;
 
 /**
  *  根据 get_full_accounts 接口返回的所有用户信息计算用户所有资产信息、挂单信息、抵押信息、债务信息等。

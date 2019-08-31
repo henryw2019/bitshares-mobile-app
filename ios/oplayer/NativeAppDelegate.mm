@@ -8,11 +8,9 @@
 
 #import "NativeAppDelegate.h"
 #import "SAMKeychain.h"
-#import "VCAdIntro.h"
 #import "AppCacheManager.h"
 #import "ThemeManager.h"
-
-#import "VCFirstLaunch.h"
+#import "LangManager.h"
 
 #import "VCMarketContainer.h"
 #import "VCDebt.h"
@@ -38,6 +36,7 @@
 #import <objc/runtime.h>
 
 #import "GrapheneSerializer.h"
+#import <Flurry/Flurry.h>
 
 @interface NativeAppDelegate()
 {
@@ -50,8 +49,6 @@
 @implementation NativeAppDelegate
 
 @synthesize alertViewWindow;
-@synthesize lockScreenWindow;
-@synthesize adWindow;
 @synthesize currLanguage = _currLanguage;
 @synthesize currNetStatus = _currNetStatus;
 @synthesize networkreach = _reach;
@@ -219,18 +216,6 @@
     }
 }
 
-+ (NSDictionary*)deviceInfoHash
-{
-    struct utsname systemInfo = {0, };
-    uname(&systemInfo);
-    
-    NSString* model = [NSString stringWithCString:systemInfo.machine encoding:NSUTF8StringEncoding];
-    NSString* version = [[UIDevice currentDevice] systemVersion];
-    NSString* jailbroken = [self isJailbroken] ? @"1" : @"0";
-    NSString* uuid = [NativeAppDelegate deviceUniqueID];
-    return [NSDictionary dictionaryWithObjectsAndKeys:uuid, @"uuid", version, @"version", model, @"model", jailbroken, @"jailbroken", nil];
-}
-
 /**
  *  生成导航VC
  */
@@ -344,6 +329,16 @@
     }
 }
 
+- (void)switchLanguage
+{
+    if (!_mainTabController){
+        return;
+    }
+    for (MyNavigationController* navi in _mainTabController.viewControllers) {
+        [navi switchLanguage];
+    }
+}
+
 ///<    设置导航条属性
 -(void)setupNavigationAttribute:(UINavigationController*)nav
 {
@@ -378,16 +373,6 @@
     [nav.navigationBar setShadowImage:[[UIImage alloc] init]];
 }
 
-/**
- *  重置界面
- */
-- (void)resetViewController
-{
-    [[TempManager sharedTempManager] reset];
-    
-    [[self createMainWindow:YES] makeKeyAndVisible];
-}
-
 - (UIImage*)imageWithColor:(UIColor*)color
 {
     //  一个像素
@@ -401,9 +386,9 @@
     return image;
 }
 
--(UIWindow*)createMainWindow:(BOOL)force_reset
+-(UIWindow*)createMainWindow
 {
-    if (self.window && !force_reset)
+    if (self.window)
         return self.window;
     
     ///<    初始化窗口
@@ -481,116 +466,14 @@
     return self.alertViewWindow.rootViewController;
 }
 
-- (UIWindow*)createAdWindow
-{
-    if (!self.adWindow)
-    {
-        self.adWindow = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
-        self.adWindow.backgroundColor = [UIColor whiteColor];
-        VCAdIntro* rootVC = [[VCAdIntro alloc] init];
-        rootVC.view.backgroundColor = [UIColor whiteColor];
-        [self.adWindow setRootViewController:rootVC];
-    }
-    self.adWindow.hidden = NO;
-    self.adWindow.windowLevel = UIWindowLevelNormal + 70;
-    return self.adWindow;
-}
-
-- (void)closeAdWindow
-{
-    if (!self.adWindow){
-        return;
-    }
-    
-    //  淡出当前窗口
-    UIWindow* w = self.adWindow;
-    [UIView animateWithDuration:0.8 animations:^{
-        w.alpha = 0.0;
-    } completion:^(BOOL finished) {
-        [w setRootViewController:nil];
-        [w resignKeyWindow];
-        [w removeFromSuperview];
-        w.hidden = YES;
-        self.adWindow = nil;
-    }];
-}
-
-- (UIViewController*)getLockScreenRootVC
-{
-    if (!self.lockScreenWindow)
-    {
-        self.lockScreenWindow = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
-        self.lockScreenWindow.backgroundColor = [UIColor clearColor];
-        VCBase* rootVC = [[VCBase alloc] init];
-        [self.lockScreenWindow setRootViewController:rootVC];
-    }
-    self.lockScreenWindow.hidden = NO;
-    self.lockScreenWindow.windowLevel = UIWindowLevelNormal + 50;
-    return self.lockScreenWindow.rootViewController;
-}
-
-- (void)hideLockScreenWindow
-{
-    if (self.lockScreenWindow)
-    {
-        //  解锁后设置下一个key窗口
-        if (_splash_window)
-        {
-            [_splash_window makeKeyAndVisible];
-        }
-        else if (self.alertViewWindow && !self.alertViewWindow.hidden)
-        {
-            [self.alertViewWindow makeKeyAndVisible];
-        }
-        else
-        {
-            [self.window makeKeyAndVisible];
-        }
-        self.lockScreenWindow.hidden = YES;
-    }
-}
-
--(UIWindow*)createFirstIntroWindow
-{
-    if (_splash_window)
-        return _splash_window;
-    _splash_window = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
-    _splash_window.windowLevel = UIWindowLevelNormal + 60;
-    _splash_window.backgroundColor = [UIColor clearColor];
-    VCFirstLaunch* first = [[VCFirstLaunch alloc] init];
-    [_splash_window setRootViewController:first];
-//    [first release];
-    return _splash_window;
-}
-
-- (BOOL)isAdOrIntrlShowing
-{
-    if (self.adWindow || _splash_window){
-        return YES;
-    }
-    return NO;
-}
-
--(void)enter
-{
-    //  淡出当前窗口
-    UIView* fadeoutView = _splash_window.rootViewController.view;
-    [UIView animateWithDuration:0.8 animations:^{
-        fadeoutView.alpha = 0.0;
-    } completion:^(BOOL finished) {
-        _splash_window = nil;
-    }];
-}
-
 void uncaughtExceptionHandler(NSException *exception)
 {
     //  [统计]
-    [Answers logCustomEventWithName:@"crash" customAttributes:@{@"name":exception.name, @"reason":exception.reason}];
+    [OrgUtils logEvents:@"crash" params:@{@"name":exception.name, @"reason":exception.reason}];
 }
 
 - (void)initLanguageInfo
 {
-    //  REMARK：下面中文部分语言判断应该和js一致。
     self.currLanguage = [[self class] getSystemLanguage];
     self.isLanguageCN = [self.currLanguage hasPrefix:@"zh"];
     self.isLanguageSimpleChinese = [self.currLanguage hasPrefix:@"zh-Hans"] || [self.currLanguage hasPrefix:@"zh-CN"];
@@ -608,25 +491,33 @@ void uncaughtExceptionHandler(NSException *exception)
     
     //  Crashlytics
     NSSetUncaughtExceptionHandler(&uncaughtExceptionHandler);   //  REMARK：must before init crashlytics
-    [Fabric with:@[[Answers class]]];                           //  REMARK：改用 answer 包含崩溃和统计。
+    [Fabric with:@[[Crashlytics class]]];
     
     NSString* uuid = [NativeAppDelegate deviceUniqueID];
+    id device_info = [NativeAppDelegate deviceInfo];
     CLS_LOG(@"%@",uuid);
-    CLS_LOG(@"UserDeviceInfo: %@", [NativeAppDelegate deviceInfo]);
+    CLS_LOG(@"UserDeviceInfo: %@", device_info);
     
     [CrashlyticsKit setUserIdentifier:uuid];
-
+    
+    [Flurry startSession:@"WY5BMPMSZTXNCC2X986X" withSessionBuilder:[[[[[FlurrySessionBuilder new]
+                                                                        withLogLevel:FlurryLogLevelAll]
+                                                                       withCrashReporting:YES]
+                                                                      withSessionContinueSeconds:20]
+                                                                     withAppVersion:[[self class] appVersion]]];
+    
     //  初始化石墨烯对象序列化类
     [T_Base registerAllType];
     
     //  初始化部分临时数据
     [[TempManager sharedTempManager] InitData];
     
-    //  初始化语言信息
-    [self initLanguageInfo];
-    
     //  初始化缓存列表（REMARK：放在tempmgr之后初始化，因为缓存文件用到的key在tempmgr中。）
     [[AppCacheManager sharedAppCacheManager] initload];
+    
+    //  初始化语言信息
+    [[LangManager sharedLangManager] initCurrentLanguage];
+    [self initLanguageInfo];
     
     //  初始化帐号、资产、市场等数据（放在cacheMgr之后，可能用到cacheMgr中用户收藏的信息。）
     [[ChainObjectManager sharedChainObjectManager] initAll];
@@ -640,7 +531,11 @@ void uncaughtExceptionHandler(NSException *exception)
     }];
     
     //  [统计]
-    [Answers logCustomEventWithName:@"startSession" customAttributes:@{@"uuid":uuid, @"lang":self.currLanguage ? : @""}];
+    id login_account_id = [[WalletManager sharedWalletManager] getWalletAccountName];
+    if (login_account_id && ![login_account_id isEqualToString:@""]){
+        [Flurry setUserID:login_account_id];
+    }
+    [OrgUtils logEvents:@"startSession" params:@{@"uuid":uuid, @"lang":self.currLanguage ? : @"", @"device_info":device_info}];
     
     //  LOG
 #ifndef DEBUG
@@ -661,19 +556,7 @@ void uncaughtExceptionHandler(NSException *exception)
     _currNetStatus = [_reach currentReachabilityStatus];
     
     //  初始化窗口
-    [[self createMainWindow:NO] makeKeyAndVisible];
-    
-    //  当前版本是否首次运行判断
-    if ([[AppCacheManager sharedAppCacheManager] isFirstRunWithVersion:[[self class] appShortVersion]])
-    {
-        //  每个版本首次启动的介绍界面
-        [[self createFirstIntroWindow] makeKeyAndVisible];
-    }
-    else
-    {
-        //  没有启屏版本介绍则初始化广告窗口
-        [[self createAdWindow] makeKeyAndVisible];
-    }
+    [[self createMainWindow] makeKeyAndVisible];
     
     return YES;
 }
@@ -742,7 +625,6 @@ void uncaughtExceptionHandler(NSException *exception)
         [_reach stopNotifier];
         self.networkreach = nil;
     }
-    _splash_window = nil;
     _window = nil;
 }
 

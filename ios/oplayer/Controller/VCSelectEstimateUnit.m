@@ -89,8 +89,8 @@
     if (![estimateAssetSymbol isEqualToString:_currEstimateAssetSymbol]){
         _currEstimateAssetSymbol = [estimateAssetSymbol copy];
         //  [统计]
-        [Answers logCustomEventWithName:@"selectSstimateAsset" customAttributes:@{@"symbol":_currEstimateAssetSymbol}];
-        [[SettingManager sharedSettingManager] setUseConfig:kSettingKey_EstimateAssetSymbol string:_currEstimateAssetSymbol];
+        [OrgUtils logEvents:@"selectSstimateAsset" params:@{@"symbol":_currEstimateAssetSymbol}];
+        [[SettingManager sharedSettingManager] setUseConfig:kSettingKey_EstimateAssetSymbol obj:_currEstimateAssetSymbol];
         [tableView reloadData];
     }
     else

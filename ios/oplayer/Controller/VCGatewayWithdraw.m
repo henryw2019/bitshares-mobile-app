@@ -22,6 +22,7 @@
 #import "WalletManager.h"
 
 #import "Gateway/RuDEX.h"
+#import "GatewayAssetItemData.h"
 
 enum
 {
@@ -148,14 +149,15 @@ enum
     self = [super init];
     if (self) {
         // Custom initialization
-        assert(fullAccountData && intermediateAccount && withdrawAssetItem && gateway);
+        assert(fullAccountData && withdrawAssetItem && gateway);
         _fullAccountData = fullAccountData;
+        //  REMRAK：open网关在这里可能为空，在最后请求的时候才得到网关账号信息。
         _intermediateAccount = intermediateAccount;
         _withdrawAssetItem = withdrawAssetItem;
         _gateway = gateway;
-        id appext = [_withdrawAssetItem objectForKey:@"kAppExt"];
+        GatewayAssetItemData* appext = [_withdrawAssetItem objectForKey:@"kAppExt"];
         assert(appext);
-        id balance = [appext objectForKey:@"balance"];
+        id balance = appext.balance;
         assert(balance);
         if (![[balance objectForKey:@"iszero"] boolValue]){
             _asset = [[ChainObjectManager sharedChainObjectManager] getChainObjectByID:[balance objectForKey:@"asset_id"]];
@@ -169,7 +171,7 @@ enum
         }
         
         //  表单行数数量和类型列表
-        _bSupportMemo = [[appext objectForKey:@"supportMemo"] boolValue];
+        _bSupportMemo = appext.supportMemo;
         _data_type_array = [NSMutableArray array];
         [_data_type_array addObjectsFromArray:@[@(kVcSubAddrTitle), @(kVcSubAddress),  @(kVcSubAssetAmountAvailable),  @(kVcSubAssetAmountValue)]];
         if (_bSupportMemo){
@@ -180,21 +182,32 @@ enum
         _n_withdrawMinAmount = [NSDecimalNumber zero];
         _n_withdrawGateFee = [NSDecimalNumber zero];
         _aux_data_array = [NSMutableArray array];
-        id symbol = [[_withdrawAssetItem objectForKey:@"kAppExt"] objectForKey:@"symbol"];
-        id withdrawMinAmount = [appext objectForKey:@"withdrawMinAmount"];
+        id symbol = appext.symbol;
+        id withdrawMinAmount = appext.withdrawMinAmount;
         if (withdrawMinAmount && ![withdrawMinAmount isEqualToString:@""]){
             _n_withdrawMinAmount = [NSDecimalNumber decimalNumberWithString:withdrawMinAmount];
             [_aux_data_array addObject:@{@"title":NSLocalizedString(@"kVcDWCellMinWithdrawNumber", @"最小提币数量"),
                                          @"value":[NSString stringWithFormat:@"%@ %@", withdrawMinAmount, symbol]}];
         }
-        id withdrawGateFee = [appext objectForKey:@"withdrawGateFee"];
+        id withdrawGateFee = appext.withdrawGateFee;
         if (withdrawGateFee && ![withdrawGateFee isEqualToString:@""]){
             _n_withdrawGateFee = [NSDecimalNumber decimalNumberWithString:withdrawGateFee];
             [_aux_data_array addObject:@{@"title":NSLocalizedString(@"kVcDWCellWithdrawFee", @"提币手续费"),
                                          @"value":[NSString stringWithFormat:@"%@ %@", withdrawGateFee, symbol]}];
         }
-        [_aux_data_array addObject:@{@"title":NSLocalizedString(@"kVcDWCellWithdrawGatewayAccount", @"网关账号"),
-                                     @"value":[[_intermediateAccount objectForKey:@"account"] objectForKey:@"name"]}];
+        if (_intermediateAccount){
+            [_aux_data_array addObject:@{@"title":NSLocalizedString(@"kVcDWCellWithdrawGatewayAccount", @"网关账号"),
+                                         @"value":[[_intermediateAccount objectForKey:@"account"] objectForKey:@"name"]}];
+        }
+        if (appext.withdrawMaxAmountOnce && ![appext.withdrawMaxAmountOnce isEqualToString:@""]){
+            [_aux_data_array addObject:@{@"title":NSLocalizedString(@"kVcDWCellMaxWithdrawNumberOnce", @"单次最大提币数量"),
+                                         @"value":[NSString stringWithFormat:@"%@ %@", appext.withdrawMaxAmountOnce, symbol]}];
+        }
+        if (appext.withdrawMaxAmount24Hours && ![appext.withdrawMaxAmount24Hours isEqualToString:@""]){
+            [_aux_data_array addObject:@{@"title":NSLocalizedString(@"kVcDWCellMaxWithdrawNumber24Hours", @"24小时最大提币数量"),
+                                         @"value":[NSString stringWithFormat:@"%@ %@", appext.withdrawMaxAmount24Hours, symbol]}];
+        }
+        
         assert([_aux_data_array count] > 0);
     }
     return self;
@@ -213,7 +226,7 @@ enum
 
 - (void)onAmountAllButtonClicked:(UIButton*)sender
 {
-    _tf_amount.text = [NSString stringWithFormat:@"%@", _n_available];
+    _tf_amount.text = [OrgUtils formatFloatValue:_n_available usesGroupingSeparator:NO];
     [self onAmountChanged];
 }
 
@@ -235,6 +248,12 @@ enum
     _tf_memo = _bSupportMemo ? [self createTfWithRect:rect keyboard:UIKeyboardTypeDefault placeholder:placeHolderMemo] : nil;
     
     //  设置属性颜色等
+    _tf_address.showBottomLine = YES;
+    _tf_amount.showBottomLine = YES;
+    if (_tf_memo){
+        _tf_memo.showBottomLine = YES;
+    }
+    
     _tf_address.updateClearButtonTintColor = YES;
     _tf_address.textColor = [ThemeManager sharedThemeManager].textColorMain;
     _tf_address.attributedPlaceholder = [[NSAttributedString alloc] initWithString:placeHolderAddress
@@ -260,7 +279,7 @@ enum
     UIButton* btn100 = [UIButton buttonWithType:UIButtonTypeSystem];
     btn100.titleLabel.font = [UIFont systemFontOfSize:13];
     [btn100 setTitle:NSLocalizedString(@"kLabelSendAll", @"全部") forState:UIControlStateNormal];
-    [btn100 setTitleColor:[ThemeManager sharedThemeManager].textColorNormal forState:UIControlStateNormal];
+    [btn100 setTitleColor:[ThemeManager sharedThemeManager].textColorHighlight forState:UIControlStateNormal];
     btn100.userInteractionEnabled = YES;
     [btn100 addTarget:self action:@selector(onAmountAllButtonClicked:) forControlEvents:UIControlEventTouchUpInside];
     btn100.frame = CGRectMake(6, 2, 40, 27);
@@ -268,6 +287,8 @@ enum
     _tf_amount.rightViewMode = UITextFieldViewModeAlways;
     
     //  提币资产总可用余额
+    GatewayAssetItemData* appext = [_withdrawAssetItem objectForKey:@"kAppExt"];
+    
     _cellAssetAvailable = [[UITableViewCellBase alloc] initWithStyle:UITableViewCellStyleValue1 reuseIdentifier:nil];
     _cellAssetAvailable.backgroundColor = [UIColor clearColor];
     _cellAssetAvailable.hideBottomLine = YES;
@@ -276,8 +297,8 @@ enum
     _cellAssetAvailable.textLabel.text = NSLocalizedString(@"kLableAvailable", @"可用");
     _cellAssetAvailable.textLabel.font = [UIFont systemFontOfSize:13.0f];
     _cellAssetAvailable.textLabel.textColor = [ThemeManager sharedThemeManager].textColorMain;
-    _cellAssetAvailable.detailTextLabel.text = [NSString stringWithFormat:@"%@ %@", _n_available,
-                                                [[_withdrawAssetItem objectForKey:@"kAppExt"] objectForKey:@"symbol"]];
+    _cellAssetAvailable.detailTextLabel.text = [NSString stringWithFormat:@"%@ %@", [OrgUtils formatFloatValue:_n_available],
+                                                appext.symbol];
     _cellAssetAvailable.detailTextLabel.font = [UIFont systemFontOfSize:13.0f];
     _cellAssetAvailable.detailTextLabel.textColor = [ThemeManager sharedThemeManager].textColorMain;
     
@@ -330,8 +351,9 @@ enum
     [self _refreshWithdrawAssetBalance:new_full_account_data];
     
     //  刷新UI
-    _cellAssetAvailable.detailTextLabel.text = [NSString stringWithFormat:@"%@ %@", _n_available,
-                                                [[_withdrawAssetItem objectForKey:@"kAppExt"] objectForKey:@"symbol"]];
+    GatewayAssetItemData* appext = [_withdrawAssetItem objectForKey:@"kAppExt"];
+    _cellAssetAvailable.detailTextLabel.text = [NSString stringWithFormat:@"%@ %@", [OrgUtils formatFloatValue:_n_available],
+                                                appext.symbol];
     [self _refreshFinalValueUI:[NSDecimalNumber zero]];
     
     //  重新加载List
@@ -355,7 +377,7 @@ enum
         str_memo = _tf_memo.text ?: @"";
     }
     
-    id n_amount = [self auxGetStringDecimalNumberValue:str_amount];
+    id n_amount = [OrgUtils auxGetStringDecimalNumberValue:str_amount];
     id n_zero = [NSDecimalNumber zero];
     //  n_amount <= 0
     if ([n_amount compare:n_zero] != NSOrderedDescending){
@@ -416,14 +438,42 @@ enum
                      // b、继续提币确认
                      if (buttonIndex == 1){
                          [self showBlockViewWithTitle:NSLocalizedString(@"kTipsBeRequesting", @"请求中...")];
-                         [[[_gateway objectForKey:@"api"] checkAddress:_withdrawAssetItem address:str_address] then:(^id(id valid) {
-                             if (![valid boolValue]){
+                         GatewayAssetItemData* appext = [_withdrawAssetItem objectForKey:@"kAppExt"];
+                         id intermediateAccountData = _intermediateAccount ? [_intermediateAccount objectForKey:@"account"] : nil;
+                         
+                         // REMARK：查询提币所需信息（账号、memo等）该接口返回都promise不会发生reject，不用catch。
+                         [[[_gateway objectForKey:@"api"] queryWithdrawIntermediateAccountAndFinalMemo:appext
+                                                                                               address:str_address
+                                                                                                  memo:str_memo
+                                                                               intermediateAccountData:intermediateAccountData] then:(^id(id withdraw_info) {
+                             if (!withdraw_info){
                                  [self hideBlockView];
-                                 [OrgUtils makeToast:NSLocalizedString(@"kVcDWSubmitTipsInvalidAddress", @"提币地址无效。")];
+                                 [OrgUtils makeToast:NSLocalizedString(@"kVcDWErrTipsRequestWithdrawAddrFailed", @"获取提币地址异常，请联系网关客服。")];
                                  return nil;
                              }
-                             // c、地址验证通过继续提币
-                             [self _processWithdrawCore:str_address amount:n_amount memo:str_memo from_public_memo:from_public_memo];
+                             
+                             id final_account = [withdraw_info objectForKey:@"intermediateAccount"];
+                             id final_memo = [withdraw_info objectForKey:@"finalMemo"];
+                             id final_account_data = [withdraw_info objectForKey:@"intermediateAccountData"];
+                             assert(final_account && final_memo && final_account_data);
+                             
+                             // 继续验证用户输入的提币地址、数量、备注等是否正确。
+                             [[[_gateway objectForKey:@"api"] checkAddress:_withdrawAssetItem address:str_address
+                                                                      memo:final_memo
+                                                                    amount:[NSString stringWithFormat:@"%@", n_amount]] then:(^id(id valid) {
+                                 if (![valid boolValue]){
+                                     [self hideBlockView];
+                                     [OrgUtils makeToast:NSLocalizedString(@"kVcDWSubmitTipsInvalidAddress", @"提币地址无效。")];
+                                     return nil;
+                                 }
+                                 // c、地址验证通过继续提币
+                                 [self _processWithdrawCore:str_address
+                                                     amount:n_amount
+                                                 final_memo:final_memo
+                                 final_intermediate_account:final_account_data
+                                           from_public_memo:from_public_memo];
+                                 return nil;
+                             })];
                              return nil;
                          })];
                      }
@@ -439,24 +489,17 @@ enum
 /**
  *  (private) 各种参数校验通过，处理提币转账请求。
  */
-- (void)_processWithdrawCore:(NSString*)address amount:(NSDecimalNumber*)n_amount memo:(NSString*)memo from_public_memo:(NSString*)from_public_memo
+- (void)_processWithdrawCore:(NSString*)address
+                      amount:(NSDecimalNumber*)n_amount
+                  final_memo:(NSString*)final_memo
+  final_intermediate_account:(id)final_intermediate_account
+            from_public_memo:(NSString*)from_public_memo
 {
     assert(_asset);
+    assert(final_memo);
+    assert(final_intermediate_account);
     
-    //  TODO:fowallet 很多特殊处理
-    //  useFullAssetName        - 部分网关提币备注资产名需要 网关.资产
-    //  assetWithdrawlAlias     - 部分网关部分币种提币备注和bts上资产名字不同。
-    
-    NSString* assetName = [[_withdrawAssetItem objectForKey:@"kAppExt"] objectForKey:@"backSymbol"];
-    assert(assetName);
-    
-    NSString* final_memo;
-    if (memo && ![memo isEqualToString:@""]){
-        final_memo = [NSString stringWithFormat:@"%@:%@:%@", assetName, address, memo];
-    }else{
-        final_memo = [NSString stringWithFormat:@"%@:%@", assetName, address];
-    }
-    id to_account = [_intermediateAccount objectForKey:@"account"];
+    id to_account = final_intermediate_account;
     id to_public = [[to_account objectForKey:@"options"] objectForKey:@"memo_key"];
     id memo_object = [[WalletManager sharedWalletManager] genMemoObject:final_memo from_public:from_public_memo to_public:to_public];
     if (!memo_object){
@@ -493,13 +536,13 @@ enum
             [self refreshUI:full_data];
             [OrgUtils makeToast:NSLocalizedString(@"kVcDWSubmitTxFullOK", @"申请提币成功。")];
             //  [统计]
-            [Answers logCustomEventWithName:@"txGatewayWithdrawFullOK" customAttributes:@{@"account":account_id, @"asset":_asset[@"symbol"]}];
+            [OrgUtils logEvents:@"txGatewayWithdrawFullOK" params:@{@"account":account_id, @"asset":_asset[@"symbol"]}];
             return nil;
         })] catch:(^id(id error) {
             [self hideBlockView];
             [OrgUtils makeToast:NSLocalizedString(@"kVcDWSubmitTxOK", @"申请提币成功，但刷新界面数据失败，请稍后再试。")];
             //  [统计]
-            [Answers logCustomEventWithName:@"txGatewayWithdrawOK" customAttributes:@{@"account":account_id, @"asset":_asset[@"symbol"]}];
+            [OrgUtils logEvents:@"txGatewayWithdrawOK" params:@{@"account":account_id, @"asset":_asset[@"symbol"]}];
             return nil;
         })];
         return nil;
@@ -507,7 +550,7 @@ enum
         [self hideBlockView];
         [OrgUtils showGrapheneError:error];
         //  [统计]
-        [Answers logCustomEventWithName:@"txGatewayWithdrawFailed" customAttributes:@{@"asset":_asset[@"symbol"]}];
+        [OrgUtils logEvents:@"txGatewayWithdrawFailed" params:@{@"asset":_asset[@"symbol"]}];
         return nil;
     })];
 }
@@ -520,14 +563,10 @@ enum
         return YES;
     }
     
-    BOOL result = [OrgUtils isValidAmountOrPriceInput:textField.text
-                                                range:range
-                                           new_string:string
-                                            precision:_precision_amount];
-    if (!result){
-        [textField.text stringByReplacingCharactersInRange:range withString:@""];
-    }
-    return result;
+    return [OrgUtils isValidAmountOrPriceInput:textField.text
+                                         range:range
+                                    new_string:string
+                                     precision:_precision_amount];
 }
 
 - (void)onTextFieldDidChange:(UITextField*)textField
@@ -535,22 +574,11 @@ enum
     if (textField != _tf_amount){
         return;
     }
+    
+    //  更新小数点为APP默认小数点样式（可能和输入法中下小数点不同，比如APP里是`.`号，而输入法则是`,`号。
+    [OrgUtils correctTextFieldDecimalSeparatorDisplayStyle:textField];
+    
     [self onAmountChanged];
-}
-
-/**
- *  (private) 辅助 - 根据字符串获取 NSDecimalNumber 对象，如果字符串以小数点结尾，则默认添加0。
- */
-- (NSDecimalNumber*)auxGetStringDecimalNumberValue:(NSString*)str
-{
-    if (!str || [str isEqualToString:@""]){
-        return [NSDecimalNumber zero];
-    }
-    //  以小数点结尾则在默认添加0。
-    if ([str rangeOfString:@"."].location == [str length] - 1){
-        str = [NSString stringWithFormat:@"%@0", str];
-    }
-    return [NSDecimalNumber decimalNumberWithString:str];
 }
 
 /**
@@ -560,25 +588,26 @@ enum
 {
     id str_amount = _tf_amount.text;
     
-    NSString* symbol = [[_withdrawAssetItem objectForKey:@"kAppExt"] objectForKey:@"symbol"];
+    GatewayAssetItemData* appext = [_withdrawAssetItem objectForKey:@"kAppExt"];
+    NSString* symbol = appext.symbol;
 
     //  无效输入
     if (!str_amount || [str_amount isEqualToString:@""]){
-        _cellAssetAvailable.detailTextLabel.text = [NSString stringWithFormat:@"%@ %@", _n_available, symbol];
+        _cellAssetAvailable.detailTextLabel.text = [NSString stringWithFormat:@"%@ %@", [OrgUtils formatFloatValue:_n_available], symbol];
         _cellAssetAvailable.detailTextLabel.textColor = [ThemeManager sharedThemeManager].textColorMain;
         return;
     }
 
     //  获取输入的数量
-    id n_amount = [self auxGetStringDecimalNumberValue:str_amount];
+    id n_amount = [OrgUtils auxGetStringDecimalNumberValue:str_amount];
     
     //  _n_available < n_amount
     if ([_n_available compare:n_amount] == NSOrderedAscending){
         //  数量不足
-        _cellAssetAvailable.detailTextLabel.text = [NSString stringWithFormat:@"%@ %@(%@)", _n_available, symbol, NSLocalizedString(@"kVcTransferTipAmountNotEnough", @"数量不足")];
+        _cellAssetAvailable.detailTextLabel.text = [NSString stringWithFormat:@"%@ %@(%@)", [OrgUtils formatFloatValue:_n_available], symbol, NSLocalizedString(@"kVcTransferTipAmountNotEnough", @"数量不足")];
         _cellAssetAvailable.detailTextLabel.textColor = [ThemeManager sharedThemeManager].tintColor;
     }else{
-        _cellAssetAvailable.detailTextLabel.text = [NSString stringWithFormat:@"%@ %@", _n_available, symbol];
+        _cellAssetAvailable.detailTextLabel.text = [NSString stringWithFormat:@"%@ %@", [OrgUtils formatFloatValue:_n_available], symbol];
         _cellAssetAvailable.detailTextLabel.textColor = [ThemeManager sharedThemeManager].textColorMain;
     }
     
@@ -603,8 +632,9 @@ enum
  */
 - (void)_refreshFinalValueUI:(NSDecimalNumber*)amount
 {
+    GatewayAssetItemData* appext = [_withdrawAssetItem objectForKey:@"kAppExt"];
     _cellFinalValue.detailTextLabel.text = [NSString stringWithFormat:@"%@ %@", [self _calcFinalValue:amount],
-                                            [[_withdrawAssetItem objectForKey:@"kAppExt"] objectForKey:@"backSymbol"]];
+                                            appext.backSymbol];
 }
 
 #pragma mark- UITextFieldDelegate delegate method
@@ -679,15 +709,6 @@ enum
     return @" ";
 }
 
-- (void)_attach_textfield_to_cell:(UITableView*)tableView cell:(UITableViewCell*)cell tf:(UITextField*)tf
-{
-    assert(tableView && cell && tf);
-    CGFloat old_height = tf.bounds.size.height;
-    CGFloat xOffset = tableView.layoutMargins.left;
-    tf.frame = CGRectMake(xOffset, 0, self.view.bounds.size.width - 2 * xOffset, old_height);
-    cell.accessoryView = tf;
-}
-
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath
 {
     if (indexPath.section == kVcFormData)
@@ -712,10 +733,9 @@ enum
                 cell.backgroundColor = [UIColor clearColor];
                 cell.accessoryType = UITableViewCellAccessoryNone;
                 cell.selectionStyle = UITableViewCellSelectionStyleNone;
-                cell.showCustomBottomLine = YES;
                 cell.hideTopLine = YES;
                 cell.hideBottomLine = YES;
-                [self _attach_textfield_to_cell:tableView cell:cell tf:_tf_address];
+                [_mainTableView attachTextfieldToCell:cell tf:_tf_address];
                 return cell;
             }
                 break;
@@ -730,9 +750,8 @@ enum
                 cell.backgroundColor = [UIColor clearColor];
                 cell.accessoryType = UITableViewCellAccessoryNone;
                 cell.selectionStyle = UITableViewCellSelectionStyleNone;
-                [self _attach_textfield_to_cell:tableView cell:cell tf:_tf_amount];
+                [_mainTableView attachTextfieldToCell:cell tf:_tf_amount];
                 cell.accessoryView = _tf_amount;
-                cell.showCustomBottomLine = YES;
                 cell.hideTopLine = YES;
                 cell.hideBottomLine = YES;
                 return cell;
@@ -758,8 +777,7 @@ enum
                 cell.backgroundColor = [UIColor clearColor];
                 cell.accessoryType = UITableViewCellAccessoryNone;
                 cell.selectionStyle = UITableViewCellSelectionStyleNone;
-                [self _attach_textfield_to_cell:tableView cell:cell tf:_tf_memo];
-                cell.showCustomBottomLine = YES;
+                [_mainTableView attachTextfieldToCell:cell tf:_tf_memo];
                 cell.hideTopLine = YES;
                 cell.hideBottomLine = YES;
                 return cell;
@@ -813,21 +831,6 @@ enum
                 [self gotoWithdrawCore];
             }];
         }];
-    }
-}
-
-#pragma mark- drag back event
-
-- (void)onDragBackStart
-{
-    [self resignAllFirstResponder];
-}
-
-- (void)onDragBackFinish:(BOOL)bToTarget
-{
-    if (!bToTarget)
-    {
-        //  TODO:...
     }
 }
 

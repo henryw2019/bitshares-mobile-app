@@ -10,6 +10,7 @@
 
 @interface MKlineItemData : NSObject
 
+@property (nonatomic, assign) NSInteger dataIndex;
 @property (nonatomic, assign) NSInteger showIndex;
 
 @property (nonatomic, assign) BOOL isRise;
@@ -21,12 +22,25 @@
 @property (nonatomic, strong) NSDecimalNumber* nPriceClose;
 @property (nonatomic, strong) NSDecimalNumber* nPriceHigh;
 @property (nonatomic, strong) NSDecimalNumber* nPriceLow;
-@property (nonatomic, strong) NSDecimalNumber* n24Vol;
+@property (nonatomic, strong) NSDecimalNumber* n24Vol;          //  成交量
+@property (nonatomic, strong) NSDecimalNumber* n24TotalAmount;  //  成交额
+@property (nonatomic, strong) NSDecimalNumber* nAvgPrice;       //  成交均价
 
-@property (nonatomic, strong) NSDecimalNumber* ma5;             //  当前MA5、10、30数据，如果数据周期不足5个或者10个或者30个，那对应数据为nil。
-@property (nonatomic, strong) NSDecimalNumber* ma10;
-@property (nonatomic, strong) NSDecimalNumber* ma30;
 @property (nonatomic, strong) NSDecimalNumber* ma60;            //  分时图需要显示
+
+@property (nonatomic, strong) NSDecimalNumber* main_index01;    //  主图指标01-03（根据设置对应不同指标，比如ma1-ma3，或者ema1-ema3，或者boll、ub、lb等）
+@property (nonatomic, strong) NSDecimalNumber* main_index02;
+@property (nonatomic, strong) NSDecimalNumber* main_index03;
+@property (nonatomic, assign) CGFloat   fOffsetMainIndex01;
+@property (nonatomic, assign) CGFloat   fOffsetMainIndex02;
+@property (nonatomic, assign) CGFloat   fOffsetMainIndex03;
+
+@property (nonatomic, strong) NSDecimalNumber* adv_index01;     //  高级指标（MACD等）
+@property (nonatomic, strong) NSDecimalNumber* adv_index02;
+@property (nonatomic, strong) NSDecimalNumber* adv_index03;
+@property (nonatomic, assign) CGFloat   fOffsetAdvIndex01;
+@property (nonatomic, assign) CGFloat   fOffsetAdvIndex02;
+@property (nonatomic, assign) CGFloat   fOffsetAdvIndex03;
 
 @property (nonatomic, strong) NSDecimalNumber* change;          //  涨跌额
 @property (nonatomic, strong) NSDecimalNumber* change_percent;  //  涨跌幅
@@ -40,9 +54,6 @@
 @property (nonatomic, assign) CGFloat   fOffsetLow;
 @property (nonatomic, assign) CGFloat   fOffset24Vol;
 
-@property (nonatomic, assign) CGFloat   fOffsetMA5;
-@property (nonatomic, assign) CGFloat   fOffsetMA10;
-@property (nonatomic, assign) CGFloat   fOffsetMA30;
 @property (nonatomic, assign) CGFloat   fOffsetMA60;            //  分时图需要显示
 
 @property (nonatomic, assign) CGFloat   fOffsetVolMA5;

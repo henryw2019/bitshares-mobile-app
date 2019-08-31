@@ -7,6 +7,7 @@
 //
 
 #import "VCKLine.h"
+#import "VCKlineIndexSetting.h"
 
 #import "MKlineItemData.h"
 #import "ViewTickerHeader.h"
@@ -155,19 +156,47 @@ enum
         sender.tintColor = [ThemeManager sharedThemeManager].textColorGray;
         [OrgUtils makeToast:NSLocalizedString(@"kTipsAddFavDelete", @"删除自选成功")];
         //  [统计]
-        [Answers logCustomEventWithName:@"event_market_remove_fav" customAttributes:@{@"base":base_symbol, @"quote":quote_symbol}];
+        [OrgUtils logEvents:@"event_market_remove_fav" params:@{@"base":base_symbol, @"quote":quote_symbol}];
     }else{
         //  添加自选、高亮五星、提示信息
         [pAppCache set_fav_markets:quote_symbol base:base_symbol];
         sender.tintColor = [ThemeManager sharedThemeManager].textColorHighlight;
         [OrgUtils makeToast:NSLocalizedString(@"kTipsAddFavSuccess", @"添加自选成功")];
         //  [统计]
-        [Answers logCustomEventWithName:@"event_market_add_fav" customAttributes:@{@"base":base_symbol, @"quote":quote_symbol}];
+        [OrgUtils logEvents:@"event_market_add_fav" params:@{@"base":base_symbol, @"quote":quote_symbol}];
     }
     [pAppCache saveFavMarketsToFile];
     
     //  标记：自选列表需要更新
     [TempManager sharedTempManager].favoritesMarketDirty = YES;
+}
+
+- (NSString*)getPeriodName:(EKlineDatePeriodType)ekdptType
+{
+    switch (ekdptType) {
+        case ekdpt_timeline:
+            return NSLocalizedString(@"kLabelEkdptLine", @"分时");
+        case ekdpt_1m:
+            return NSLocalizedString(@"kLabelEkdpt1min", @"1分");
+        case ekdpt_5m:
+            return NSLocalizedString(@"kLabelEkdpt5min", @"5分");
+        case ekdpt_15m:
+            return NSLocalizedString(@"kLabelEkdpt15min", @"15分");
+        case ekdpt_30m:
+            return NSLocalizedString(@"kLabelEkdpt30min", @"30分");
+        case ekdpt_1h:
+            return NSLocalizedString(@"kLabelEkdpt1hour", @"1小时");
+        case ekdpt_4h:
+            return NSLocalizedString(@"kLabelEkdpt4hour", @"4小时");
+        case ekdpt_1d:
+            return NSLocalizedString(@"kLabelEkdpt1day", @"日线");
+        case ekdpt_1w:
+            return NSLocalizedString(@"kLabelEkdpt1week", @"周线");
+        default:
+            break;
+    }
+    assert(NO);
+    return nil;
 }
 
 /**
@@ -182,57 +211,39 @@ enum
     assert(kline_period_ary);
     
     NSInteger kline_period_default = [parameters[@"kline_period_default"] integerValue];
+    assert(kline_period_default >= 0 && kline_period_default < [kline_period_ary count]);
     
     NSMutableArray* buttonArray = [NSMutableArray array];
     for (id ekdpt_value in kline_period_ary) {
         NSInteger ekdpt = [ekdpt_value integerValue];
-        NSString* name = nil;
-        switch (ekdpt) {
-            case ekdpt_timeline:
-                name = NSLocalizedString(@"kLabelEkdptLine", @"分时");
-                break;
-            case ekdpt_1m:
-                name = NSLocalizedString(@"kLabelEkdpt1min", @"1分");
-                break;
-            case ekdpt_5m:
-                name = NSLocalizedString(@"kLabelEkdpt5min", @"5分");
-                break;
-            case ekdpt_15m:
-                name = NSLocalizedString(@"kLabelEkdpt15min", @"15分");
-                break;
-            case ekdpt_30m:
-                name = NSLocalizedString(@"kLabelEkdpt30min", @"30分");
-                break;
-            case ekdpt_1h:
-                name = NSLocalizedString(@"kLabelEkdpt1hour", @"1小时");
-                break;
-            case ekdpt_4h:
-                name = NSLocalizedString(@"kLabelEkdpt4hour", @"4小时");
-                break;
-            case ekdpt_1d:
-                name = NSLocalizedString(@"kLabelEkdpt1day", @"日线");
-                break;
-            case ekdpt_1w:
-                name = NSLocalizedString(@"kLabelEkdpt1week", @"周线");
-                break;
-            default:
-                break;
-        }
-        //  无效配置
+        NSString* name = [self getPeriodName:(EKlineDatePeriodType)ekdpt];
         if (!name){
             continue;
         }
         [buttonArray addObject:@{@"name":name, @"value":@(ekdpt)}];
     }
-    return @{@"button_list":buttonArray, @"default_value":@(kline_period_default)};
+    
+    //  更多 - 按钮
+    [buttonArray addObject:@{@"name":NSLocalizedString(@"kLabelEkdptBtnMore", @"更多◢"), @"value":@(kBTS_KLINE_MORE_BUTTON_VALUE), @"disable_selected":@YES}];
+    
+    //  指标 - 按钮
+    [buttonArray addObject:@{@"name":NSLocalizedString(@"kLabelEkdptBtnIndex", @"指标"), @"value":@(kBTS_KLINE_INDEX_BUTTON_VALUE), @"disable_selected":@YES}];
+    
+    return @{@"button_list":buttonArray, @"default_value":@([[kline_period_ary objectAtIndex:kline_period_default] integerValue])};
 }
+
+//- (void)onFLipMarketClicked
+//{
+//      TODO:flip pairs and request again...
+//    [self _queryInitData];
+//}
 
 - (void)viewDidLoad
 {
     [super viewDidLoad];
 	// Do any additional setup after loading the view.
     self.view.backgroundColor = [ThemeManager sharedThemeManager].appBackColor;
-    
+  
     CGFloat safeHeight = [self heightForBottomSafeArea];
     CGFloat fBottomViewHeight = 60.0f;
     
@@ -328,60 +339,77 @@ enum
     
     //  TODO:fowallet 开始加载测试数据
     _viewKLine.ekdptType = ekdpt_15m;   //  TODO:fowallet 900s 15m
+    
+    //  查询数据
+    [self _queryInitData];
+}
+
+- (void)_queryInitData
+{
     [self showBlockViewWithTitle:NSLocalizedString(@"kTipsBeRequesting", @"请求中...")];
     
     ChainObjectManager* chainMgr = [ChainObjectManager sharedChainObjectManager];
     
-    //  1、查询K线基本数据
-    NSInteger kline_period_default = [[chainMgr getDefaultParameters][@"kline_period_default"] integerValue];
-    NSInteger default_query_seconds = [self getDatePeriodSeconds:(EKlineDatePeriodType)kline_period_default];
-    NSInteger now = [[NSDate date] timeIntervalSince1970];
-    id snow = [OrgUtils formatBitsharesTimeString:now];
-    id sbgn = [OrgUtils formatBitsharesTimeString:now-default_query_seconds*kBTS_KLINE_MAX_SHOW_CANDLE_NUM];
-    //    id sbgn = [OrgUtils formatBitsharesTimeString:now-86400*200];
-    
-    id api_history = [[GrapheneConnectionManager sharedGrapheneConnectionManager] any_connection].api_history;
-    //  TODO:fowallet 这个方法一次最多返回200条数据，如果 kBTS_KLINE_MAX_SHOW_CANDLE_NUM 设置为300，那么返回的数据可能不包含近期100条。需要多次请求
-    WsPromise* initKdata = [api_history exec:@"get_market_history" params:@[_tradingPair.baseId, _tradingPair.quoteId, @(default_query_seconds), sbgn, snow]];
-    
-    id sbgn1 = [OrgUtils formatBitsharesTimeString:now-86400*1];
-    
-    //  2、查询最高最低价格等信息
-    WsPromise* initToday = [api_history exec:@"get_market_history" params:@[_tradingPair.baseId, _tradingPair.quoteId, @86400, sbgn1, snow]];
-    
-    //  3、查询成交记录信息
-    WsPromise* promiseHistory = [chainMgr queryFillOrderHistory:_tradingPair number:20];
-    
-    //  4、查询限价单信息
-    WsPromise* promiseLimitOrders = [chainMgr queryLimitOrders:_tradingPair number:200];//   TODO:fowallet
-    
-    //  5、查询喂价信息（如果需要）
-    id promsie_bitasset_data_id;
-    NSMutableArray* tmp_ary = [NSMutableArray array];
-    if (_tradingPair.baseIsSmart){
-        [tmp_ary addObject:[_tradingPair.baseAsset objectForKey:@"bitasset_data_id"]];
-    }
-    if (_tradingPair.quoteIsSmart){
-        [tmp_ary addObject:[_tradingPair.quoteAsset objectForKey:@"bitasset_data_id"]];
-    }
-    if ([tmp_ary count] > 0){
-        id api_db = [[GrapheneConnectionManager sharedGrapheneConnectionManager] any_connection].api_db;
-        promsie_bitasset_data_id = [api_db exec:@"get_objects" params:@[tmp_ary]];
-    }else{
-        promsie_bitasset_data_id = [NSNull null];
-    }
-    
-    //  执行查询
-    [[[WsPromise all:@[initKdata, initToday, promiseHistory, promiseLimitOrders, promsie_bitasset_data_id]] then:(^id(id data_array) {
-        [self hideBlockView];
-        [self onQueryFeedPriceInfoResponsed:data_array[4]];
-        [self onQueryTodayInfoResponsed:data_array[1]];
-        [self onQueryKdataResponsed:data_array[0]];
-        [self onQueryLimitOrderResponsed:data_array[3]];
-        [self onQueryFillOrderHistoryResponsed:data_array[2]];
-        //  继续订阅
-        [[ScheduleManager sharedScheduleManager] sub_market_notify:_tradingPair];
-        return nil;
+    //  优先查询智能背书资产信息（之后才考虑是否查询喂价、爆仓单等信息）
+    [[[chainMgr queryShortBackingAssetInfos:@[_tradingPair.baseId, _tradingPair.quoteId]] then:(^id(id sba_hash) {
+        //  更新智能资产信息
+        [_tradingPair RefreshCoreMarketFlag:sba_hash];
+        
+        //  1、查询K线基本数据
+        id parameters = [chainMgr getDefaultParameters];
+        id kline_period_ary = parameters[@"kline_period_ary"];
+        assert(kline_period_ary);
+        NSInteger kline_period_default = [parameters[@"kline_period_default"] integerValue];
+        assert(kline_period_default >= 0 && kline_period_default < [kline_period_ary count]);
+        NSInteger kline_period_default_value = [[kline_period_ary objectAtIndex:kline_period_default] integerValue];
+        NSInteger default_query_seconds = [self getDatePeriodSeconds:(EKlineDatePeriodType)kline_period_default_value];
+        NSInteger now = [[NSDate date] timeIntervalSince1970];
+        id snow = [OrgUtils formatBitsharesTimeString:now];
+        id sbgn = [OrgUtils formatBitsharesTimeString:now-default_query_seconds*kBTS_KLINE_MAX_SHOW_CANDLE_NUM];
+        //    id sbgn = [OrgUtils formatBitsharesTimeString:now-86400*200];
+        
+        id api_history = [[GrapheneConnectionManager sharedGrapheneConnectionManager] any_connection].api_history;
+        //  TODO:fowallet 这个方法一次最多返回200条数据，如果 kBTS_KLINE_MAX_SHOW_CANDLE_NUM 设置为300，那么返回的数据可能不包含近期100条。需要多次请求
+        WsPromise* initKdata = [api_history exec:@"get_market_history"
+                                          params:@[_tradingPair.baseId, _tradingPair.quoteId, @(default_query_seconds), sbgn, snow]];
+        
+        id sbgn1 = [OrgUtils formatBitsharesTimeString:now-86400*1];
+        
+        //  2、查询最高最低价格等信息
+        WsPromise* initToday = [api_history exec:@"get_market_history"
+                                          params:@[_tradingPair.baseId, _tradingPair.quoteId, @86400, sbgn1, snow]];
+        
+        //  获取参数
+        NSInteger n_callorder = [parameters[@"kline_query_callorder_number"] integerValue];
+        NSInteger n_limitorder = [parameters[@"kline_query_limitorder_number"] integerValue];
+        NSInteger n_fillorder = [parameters[@"kline_query_fillorder_number"] integerValue];
+        assert(n_callorder > 0 && n_limitorder > 0 && n_fillorder > 0);
+        
+        //  3、查询成交记录信息
+        WsPromise* promiseHistory = [chainMgr queryFillOrderHistory:_tradingPair number:n_fillorder];
+        
+        //  4、查询限价单信息
+        WsPromise* promiseLimitOrders = [chainMgr queryLimitOrders:_tradingPair number:n_limitorder];
+        
+        //  5、查询爆仓单和喂价信息
+        WsPromise* promiseCallOrders = [chainMgr queryCallOrders:_tradingPair number:n_callorder];
+        
+        //  执行查询
+        return [[WsPromise all:@[initKdata, initToday, promiseHistory, promiseLimitOrders, promiseCallOrders]] then:(^id(id data_array) {
+            [self hideBlockView];
+            id settlement_data = data_array[4];
+            [self onQueryFeedPriceInfoResponsed:settlement_data];
+            [self onQueryTodayInfoResponsed:data_array[1]];
+            [self onQueryKdataResponsed:data_array[0]];
+            [self onQueryOrderBookResponsed:data_array[3] settlement_data:settlement_data];
+            [self onQueryFillOrderHistoryResponsed:data_array[2]];
+            //  继续订阅
+            [[ScheduleManager sharedScheduleManager] sub_market_notify:_tradingPair
+                                                           n_callorder:n_callorder
+                                                          n_limitorder:n_limitorder
+                                                           n_fillorder:n_fillorder];
+            return nil;
+        })];
     })] catch:(^id(id error) {
         [self hideBlockView];
         [OrgUtils makeToast:NSLocalizedString(@"tip_network_error", @"网络异常，请稍后再试。")];
@@ -430,8 +458,11 @@ enum
     if (!userinfo){
         return;
     }
+    id settlement_data = [userinfo objectForKey:@"kSettlementData"];
+    //  更新喂价信息
+    [self onQueryFeedPriceInfoResponsed:settlement_data];
     //  更新限价单
-    [self onQueryLimitOrderResponsed:[userinfo objectForKey:@"kLimitOrders"]];
+    [self onQueryOrderBookResponsed:[userinfo objectForKey:@"kLimitOrders"] settlement_data:settlement_data];
     //  更新成交历史
     id fillOrders = [userinfo objectForKey:@"kFillOrders"];
     if (fillOrders){
@@ -442,36 +473,25 @@ enum
 
 - (void)onQueryFeedPriceInfoResponsed:(id)feed_infos
 {
-    //  计算喂价（可能为 nil）
-    _feedPriceInfo = [_tradingPair calcShowFeedInfo:feed_infos];
-    NSLog(@"Current Feed price: %@%@/%@", [NSString stringWithFormat:@"%@", _feedPriceInfo],
-          _tradingPair.baseAsset[@"symbol"], _tradingPair.quoteAsset[@"symbol"]);
+    //  获取显示用喂价信息（可能为nil）
+    _feedPriceInfo = [feed_infos objectForKey:@"feed_price_market"];
+    [_viewTickerHeader refreshFeedPrice:_feedPriceInfo];
 }
 
-- (void)onQueryLimitOrderResponsed:(NSDictionary*)data
+- (void)onQueryOrderBookResponsed:(NSDictionary*)normal_order_book settlement_data:(id)settlement_data
 {
     //  订阅市场返回的数据可能为 nil。
-    if (!data){
+    if (!normal_order_book){
         return;
     }
     
     //  初始化显示精度
-    [_tradingPair dynamicUpdateDisplayPrecision:data];
+    [_tradingPair dynamicUpdateDisplayPrecision:normal_order_book];
     
     //  刷新深度图和盘口信息
-    [_viewDeepGraph refreshDeepGraph:data];
-    [_viewOrderBookCell onQueryLimitOrderResponsed:data];
-    
-//    //  加载数据
-//    [_bidDataArray removeAllObjects];
-//    [_bidDataArray addObjectsFromArray:[data objectForKey:@"bids"]];
-//    
-//    [_askDataArray removeAllObjects];
-//    [_askDataArray addObjectsFromArray:[data objectForKey:@"asks"]];
-    
-//    [_bidTableView reloadData];
-//    [_askTableView reloadData];
-    
+    id merged_order_book = [OrgUtils mergeOrderBook:normal_order_book settlement_data:settlement_data];
+    [_viewDeepGraph refreshDeepGraph:merged_order_book];
+    [_viewOrderBookCell onQueryOrderBookResponsed:merged_order_book];
 }
 
 - (void)onQueryFillOrderHistoryResponsed:(NSArray*)data_array
@@ -482,7 +502,8 @@ enum
     }
     [_dataArrayHistory removeAllObjects];
     [_dataArrayHistory addObjectsFromArray:data_array];
-    [_mainTableView reloadData];
+    //  刷新
+    [self _reloadDeepAndHistorySection];
 }
 
 - (void)queryKdata:(NSInteger)seconds ekdptType:(EKlineDatePeriodType)ekdptType
@@ -550,27 +571,89 @@ enum
 }
 
 /**
+ *  (private) 指标按钮点击
+ */
+- (void)_onIndexButtonClicked
+{
+    WsPromiseObject* result_promise = [[WsPromiseObject alloc] init];
+    VCKlineIndexSetting* vc = [[VCKlineIndexSetting alloc] initWithResultPromise:result_promise];
+    vc.title = NSLocalizedString(@"kVcTitleKlineIndexSetting", @"K线指标设置");
+    vc.hidesBottomBarWhenPushed = YES;
+    [self showModelViewController:vc tag:0];
+    [result_promise then:(^id(id cancel) {
+        if (![cancel boolValue]){
+            [_viewKLine refreshUI];
+        }
+        return nil;
+    })];
+}
+
+- (void)_onMoreButtonClicked:(UIButton*)sender
+{
+    id parameters = [[ChainObjectManager sharedChainObjectManager] getDefaultParameters];
+    assert(parameters);
+    id kline_period_ary = parameters[@"kline_period_ary"];
+    assert(kline_period_ary);
+    NSMutableDictionary* kline_period_existed_hash = [NSMutableDictionary dictionary];
+    for (id ekdpt_value in kline_period_ary) {
+        [kline_period_existed_hash setObject:@YES forKey:@([ekdpt_value integerValue])];
+    }
+    
+    id all_periods = @[@(ekdpt_timeline), @(ekdpt_1m), @(ekdpt_5m), @(ekdpt_15m), @(ekdpt_30m),
+                       @(ekdpt_1h), @(ekdpt_4h), @(ekdpt_1d), @(ekdpt_1w)];
+    
+    NSMutableArray* more_list = [NSMutableArray array];
+    EKlineDatePeriodType currentType = _viewKLine.ekdptType;
+    NSInteger defaultIndex = 0;
+    
+    for (id period in all_periods) {
+        if (![kline_period_existed_hash objectForKey:period]){
+            EKlineDatePeriodType type = (EKlineDatePeriodType)[period integerValue];
+            if (type == currentType){
+                defaultIndex = [more_list count];
+            }
+            [more_list addObject:@{@"name":[self getPeriodName:type], @"value":period}];
+        }
+    }
+    
+    [[[MyPopviewManager sharedMyPopviewManager] showModernListView:self.navigationController
+                                                           message:nil
+                                                             items:more_list
+                                                           itemkey:@"name"
+                                                      defaultIndex:defaultIndex] then:(^id(id result) {
+        if (result){
+            [_viewLineButtons selectButton:sender
+                                   newText:[NSString stringWithFormat:@"%@%@", result[@"name"], NSLocalizedString(@"kLabelEkdptMoreSuffix", "◢")]];
+            EKlineDatePeriodType ekdpt = (EKlineDatePeriodType)[[result objectForKey:@"value"] integerValue];
+            [self queryKdata:[self getDatePeriodSeconds:ekdpt] ekdptType:ekdpt];
+        }
+        return nil;
+    })];
+}
+
+/**
  *  K线周期按钮点击事件
  */
 - (void)onSliderButtonClicked:(UIButton*)sender
 {
     NSLog(@"tag:%@", @(sender.tag));
-    EKlineDatePeriodType ekdpt = (EKlineDatePeriodType)sender.tag;
-    [self queryKdata:[self getDatePeriodSeconds:ekdpt] ekdptType:ekdpt];
-     
-//    [self resignAllFirstResponder];
-//
-//    [self sliderAnimationWithTag:sender.tag];
-//
-//    CGRect screenRect = [[UIScreen mainScreen] bounds];
-//
-//    CGFloat kScreenWidth = screenRect.size.width;
-//
-//    [UIView animateWithDuration:0.3 animations:^{
-//        _mainScrollView.contentOffset = CGPointMake(kScreenWidth * (sender.tag - 1), 0);
-//    } completion:^(BOOL finished) {
-//        [self onAnimationDone];
-//    }];
+    NSInteger tag = sender.tag;
+    switch (tag) {
+        case kBTS_KLINE_INDEX_BUTTON_VALUE:
+            [self _onIndexButtonClicked];
+            break;
+        case kBTS_KLINE_MORE_BUTTON_VALUE:
+            [self _onMoreButtonClicked:sender];
+            break;
+        default:
+        {
+            [_viewLineButtons updateButtonText:kBTS_KLINE_MORE_BUTTON_VALUE
+                                       newText:NSLocalizedString(@"kLabelEkdptBtnMore", @"更多◢")];
+            EKlineDatePeriodType ekdpt = (EKlineDatePeriodType)tag;
+            [self queryKdata:[self getDatePeriodSeconds:ekdpt] ekdptType:ekdpt];
+        }
+            break;
+    }
 }
 
 - (void)onSliderButtonClicked_DeepAndHistory:(UIButton*)sender
@@ -578,14 +661,17 @@ enum
     NSInteger tag = sender.tag;
     if (tag != _currSecondPartyShowIndex){
         _currSecondPartyShowIndex = tag;
-        [_mainTableView reloadData];
+        [self _reloadDeepAndHistorySection];
     }
 }
 
-- (void)didReceiveMemoryWarning
+- (void)_reloadDeepAndHistorySection
 {
-    [super didReceiveMemoryWarning];
-    // Dispose of any resources that can be recreated.
+    [UIView performWithoutAnimation:(^{
+        CGPoint old_offset = _mainTableView.contentOffset;
+        [_mainTableView reloadSections:[NSIndexSet indexSetWithIndex:kVcDeepOrHistory] withRowAnimation:UITableViewRowAnimationNone];
+        [_mainTableView setContentOffset:old_offset animated:NO];
+    })];
 }
 
 #pragma mark- TableView delegate method

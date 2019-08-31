@@ -8,9 +8,12 @@
 
 #import "VCUserAssets.h"
 #import "BitsharesClientManager.h"
+#import "MBProgressHUDSingleton.h"
 #import "ViewAssetInfoCell.h"
 #import "WalletManager.h"
 #import "VCUserActivity.h"
+#import "VCVestingBalance.h"
+#import "VCHtlcList.h"
 
 #import "VCTransfer.h"
 #import "VCTradeHor.h"
@@ -28,7 +31,7 @@
 {
     NSDictionary*   _userAssetDetailInfos;
     NSDictionary*   _assethash;
-    NSDictionary*   _accountInfo;
+    NSDictionary*   _fullAccountInfo;
 }
 
 @end
@@ -39,19 +42,24 @@
 {
     _userAssetDetailInfos = nil;
     _assethash = nil;
-    _accountInfo = nil;
+    _fullAccountInfo = nil;
 }
 
 - (NSArray*)getTitleStringArray
 {
-    return @[NSLocalizedString(@"kVcAssetPageAsset", @"资产"), NSLocalizedString(@"kVcAssetPageActivity", @"明细")];
+    return @[NSLocalizedString(@"kVcAssetPageAsset", @"资产"),
+             NSLocalizedString(@"kVcAssetPageActivity", @"明细"),
+             NSLocalizedString(@"kVcAssetPageHTLC", @"HTLC"),
+             NSLocalizedString(@"kVcAssetPageVestingBalance", @"待解冻金额")];
 }
 
 - (NSArray*)getSubPageVCArray
 {
-    id vc01 = [[VCUserAssets alloc] initWithOwner:self assetDetailInfos:_userAssetDetailInfos assetHash:_assethash accountInfo:_accountInfo];
-    id vc02 = [[VCUserActivity alloc] initWithAccountInfo:_accountInfo[@"account"]];
-    return @[vc01, vc02];
+    id vc01 = [[VCUserAssets alloc] initWithOwner:self assetDetailInfos:_userAssetDetailInfos assetHash:_assethash accountInfo:_fullAccountInfo];
+    id vc02 = [[VCUserActivity alloc] initWithAccountInfo:_fullAccountInfo[@"account"]];
+    id vc03 = [[VCHtlcList alloc] initWithOwner:self fullAccountInfo:_fullAccountInfo];
+    id vc04 = [[VCVestingBalance alloc] initWithOwner:self fullAccountInfo:_fullAccountInfo];
+    return @[vc01, vc02, vc03, vc04];
 }
 
 - (id)initWithUserAssetDetailInfos:(NSDictionary*)userAssetDetailInfos assetHash:(NSDictionary*)assetHash accountInfo:(NSDictionary*)accountInfo
@@ -60,7 +68,7 @@
     if (self) {
         _userAssetDetailInfos = userAssetDetailInfos;
         _assethash = assetHash;
-        _accountInfo = accountInfo;
+        _fullAccountInfo = accountInfo;
     }
     return self;
 }
@@ -69,20 +77,20 @@
 {
     AppCacheManager* pAppCache = [AppCacheManager sharedAppCacheManager];
     
-    id account = [_accountInfo objectForKey:@"account"];
+    id account = [_fullAccountInfo objectForKey:@"account"];
     id account_name = [account objectForKey:@"name"];
     if ([[pAppCache get_all_fav_accounts] objectForKey:account_name]){
         [pAppCache remove_fav_account:account_name];
         [self showRightImageButton:@"iconFav" action:@selector(onRightButtonClicked) color:[ThemeManager sharedThemeManager].textColorGray];
         [OrgUtils makeToast:NSLocalizedString(@"kTipsUnfollowed", @"已取消关注")];
         //  [统计]
-        [Answers logCustomEventWithName:@"event_account_remove_fav" customAttributes:@{@"account":account_name}];
+        [OrgUtils logEvents:@"event_account_remove_fav" params:@{@"account":account_name}];
     }else{
         [pAppCache set_fav_account:@{@"name":account_name, @"id":[account objectForKey:@"id"]}];
         [self showRightImageButton:@"iconFav" action:@selector(onRightButtonClicked) color:[ThemeManager sharedThemeManager].textColorHighlight];
         [OrgUtils makeToast:NSLocalizedString(@"kTipsFollowed", @"关注成功")];
         //  [统计]
-        [Answers logCustomEventWithName:@"event_account_add_fav" customAttributes:@{@"account":account_name}];
+        [OrgUtils logEvents:@"event_account_add_fav" params:@{@"account":account_name}];
     }
     [pAppCache saveFavAccountsToFile];
 }
@@ -93,7 +101,7 @@
     // Do any additional setup after loading the view.
     self.view.backgroundColor = [ThemeManager sharedThemeManager].appBackColor;
     
-    id account_name = [[_accountInfo objectForKey:@"account"] objectForKey:@"name"];
+    id account_name = [[_fullAccountInfo objectForKey:@"account"] objectForKey:@"name"];
     
     //  他人帐号 关注/取消关注
     if (![[WalletManager sharedWalletManager] isMyselfAccount:account_name]){
@@ -101,6 +109,30 @@
             [self showRightImageButton:@"iconFav" action:@selector(onRightButtonClicked) color:[ThemeManager sharedThemeManager].textColorHighlight];
         }else{
             [self showRightImageButton:@"iconFav" action:@selector(onRightButtonClicked) color:[ThemeManager sharedThemeManager].textColorGray];
+        }
+    }
+}
+
+- (void)onPageChanged:(NSInteger)tag
+{
+    NSLog(@"onPageChanged: %@", @(tag));
+    
+    //  gurad
+    if ([[MBProgressHUDSingleton sharedMBProgressHUDSingleton] is_showing]){
+        return;
+    }
+    
+    //  query
+    if (_subvcArrays){
+        id vc = [_subvcArrays safeObjectAtIndex:tag - 1];
+        if (vc){
+            if ([vc isKindOfClass:[VCVestingBalance class]]){
+                VCVestingBalance* vc_vesting_balance = (VCVestingBalance*)vc;
+                [vc_vesting_balance queryVestingBalance];
+            }else if ([vc isKindOfClass:[VCHtlcList class]]){
+                VCHtlcList* vc_htlc_list = (VCHtlcList*)vc;
+                [vc_htlc_list queryUserHTLCs];
+            }
         }
     }
 }
@@ -243,11 +275,18 @@
             //  REMARK：collateral_asset_id 是 debt 的背书资产，那么用户的资产余额里肯定有 抵押中 的背书资产。
             NSInteger debt_precision = [[asset_detail objectForKey:@"precision"] integerValue];
             NSInteger collateral_precision = [[collateral_asset objectForKey:@"precision"] integerValue];
-            id trigger_price = [OrgUtils calcSettlementTriggerPrice:asset_call_price
+            id mcr = [[[chainMgr getChainObjectByID:[asset_detail objectForKey:@"bitasset_data_id"]] objectForKey:@"current_feed"] objectForKey:@"maintenance_collateral_ratio"];
+            id trigger_price = [OrgUtils calcSettlementTriggerPrice:asset_call_order[@"debt"]
+                                                         collateral:asset_call_order[@"collateral"]
+                                                     debt_precision:debt_precision
                                                collateral_precision:collateral_precision
-                                                     debt_precision:debt_precision];
+                                                              n_mcr:[NSDecimalNumber decimalNumberWithMantissa:[mcr unsignedLongLongValue]
+                                                                                                      exponent:-3 isNegative:NO]
+                                                            reverse:NO
+                                                       ceil_handler:nil
+                                               set_divide_precision:YES];
             optional_number++;
-            [asset_final setObject:[NSString stringWithFormat:@"%@", trigger_price] forKey:@"trigger_price"];
+            [asset_final setObject:[OrgUtils formatFloatValue:trigger_price] forKey:@"trigger_price"];
         }
         
         //  设置优先级   1-BTS   2-智能货币（CNY等）    3-有抵押等（其实目前只有BTS可抵押，不排除以后有其他可抵押货币。） 4-其他资产

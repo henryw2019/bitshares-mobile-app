@@ -1,5 +1,7 @@
 package bitshares
 
+import java.math.BigDecimal
+
 //  渠道ID编号（0:iOS企业版 1:AppStore版 10:android官方版）
 const val kAppChannelID = 10
 
@@ -51,7 +53,8 @@ const val kAppCacheNameCustomMarketsByApp = "custommarkets_v1.json"
 const val kAppCacheNameUserSettingByApp = "usersetting_v1.json"
 
 //  设置界面存储数据的 KEY 值
-const val kSettingKey_EstimateAssetSymbol = "kEstimateAssetSymbol" //  计价单位符号 CNY、USD等
+const val kSettingKey_EstimateAssetSymbol = "kEstimateAssetSymbol"  //  计价单位符号 CNY、USD等
+const val kSettingKey_KLineIndexInfo = "kKLineIndexInfo_v2"         //  K线指标参数信息    REMARK：如果新增指标需要更新下参数版本
 
 //  Actity结果传递请求码
 const val kRequestCodeTransferConfirm = 0x101     //  确认转账交易
@@ -95,3 +98,12 @@ const val kBTS_KLINE_MAX_SHOW_CANDLE_NUM = 200
 
 //  K线中指向最低价格、最高价格的短横线长度
 val kBTS_KLINE_HL_PRICE_SHORT_LINE_LENGTH = 12.dp
+
+//  BigDecimal大数计算不指定精度时默认采用的精度。
+val kBigDecimalDefaultMaxPrecision = 16
+
+//  BigDecimal大数计算时默认的round模式
+val kBigDecimalDefaultRoundingMode = BigDecimal.ROUND_HALF_UP
+
+//  startActivity传递参数时的ID
+const val BTSPP_START_ACTIVITY_PARAM_ID = "btspp_start_activity_param_id"

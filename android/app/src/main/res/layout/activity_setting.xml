@@ -36,7 +36,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="match_parent"
-                    android:text="@string/nameBack"
+                    android:text="@string/kBtnBack"
                     style="@style/kNavigationBarTextStyle"
                     android:gravity="center_vertical"
                     />
@@ -49,12 +49,53 @@
                 android:layout_height="40dp"
                 android:gravity="center"
                 android:layout_gravity="center_vertical"
-                android:text="@string/myPageSetting"
+                android:text="@string/kSettingEx"
                 style="@style/kNavigationBarTextStyle" />
 
         </FrameLayout>
 
+        <!-- language -->
+        <LinearLayout
+            android:id="@+id/layout_language_from_setting"
+            android:layout_width="match_parent"
+            android:layout_height="34dp"
+            android:layout_marginTop="15dp"
+            android:orientation="horizontal">
 
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:layout_gravity="center_vertical"
+                android:gravity="center_vertical"
+                android:textSize="16dp"
+                android:layout_weight="9"
+                android:textColor="@color/theme01.textColorMain"
+                android:text="@string/setting_language"/>
+
+            <TextView
+                android:id="@+id/label_txt_language"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:layout_gravity="center_vertical"
+                android:gravity="center_vertical|right"
+                android:textSize="16dp"
+                android:layout_weight="9"
+                android:textColor="@color/theme01.textColorNormal"
+                android:text="--"/>
+
+            <ImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:layout_gravity="center_vertical|right"
+                android:layout_weight="0.5"
+
+                android:foregroundGravity="right"
+                android:src="@drawable/ic_btn_right_arrow" />
+
+        </LinearLayout>
+
+        <!-- currency -->
         <LinearLayout
             android:id="@+id/layout_currency_from_setting"
             android:layout_width="match_parent"
@@ -71,7 +112,7 @@
                 android:textSize="16dp"
                 android:layout_weight="9"
                 android:textColor="@color/theme01.textColorMain"
-                android:text="@string/settingPageValuationWay"/>
+                android:text="@string/setting_currency"/>
 
             <TextView
                 android:id="@+id/label_txt_currency"
@@ -95,7 +136,7 @@
 
         </LinearLayout>
 
-        <!-- 主题风格 TODO：暂时不支持 -->
+        <!-- theme 主题风格 TODO：暂时不支持 -->
         <LinearLayout
             android:id="@+id/layout_theme_from_setting"
             android:layout_width="match_parent"
@@ -113,7 +154,7 @@
                 android:textSize="16dp"
                 android:layout_weight="9"
                 android:textColor="@color/theme01.textColorMain"
-                android:text="@string/settingPageThemeStyle"/>
+                android:text="@string/setting_theme"/>
 
             <TextView
                 android:id="@+id/label_txt_theme"
@@ -124,7 +165,7 @@
                 android:textSize="16dp"
                 android:layout_weight="9"
                 android:textColor="@color/theme01.textColorNormal"
-                android:text="@string/settingPageJingMiLan"/>
+                android:text="@string/kThemeNameBlue"/>
 
             <ImageView
                 android:layout_width="20dp"

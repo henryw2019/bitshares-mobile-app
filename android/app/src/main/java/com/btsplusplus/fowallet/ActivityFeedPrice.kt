@@ -53,7 +53,7 @@ class ActivityFeedPrice : BtsppActivity() {
     }
 
     private fun queryDetailFeedInfos(pos: Int) {
-        val mask = ViewMesk(R.string.nameRequesting.xmlstring(this), this)
+        val mask = ViewMask(R.string.kTipsBeRequesting.xmlstring(this), this)
         mask.show()
         val conn = GrapheneConnectionManager.sharedGrapheneConnectionManager().any_connection()
         val chainMgr = ChainObjectManager.sharedChainObjectManager()
@@ -95,7 +95,7 @@ class ActivityFeedPrice : BtsppActivity() {
             }
         }.catch {
             mask.dismiss()
-            showToast(resources.getString(R.string.nameNetworkException))
+            showToast(resources.getString(R.string.tip_network_error))
         }
     }
 
@@ -108,7 +108,7 @@ class ActivityFeedPrice : BtsppActivity() {
         view_pager!!.adapter = ViewPagerAdapter(super.getSupportFragmentManager(), fragmens)
         val f: Field = ViewPager::class.java.getDeclaredField("mScroller")
         f.isAccessible = true
-        val vpc: ViewPagerScroller = ViewPagerScroller(view_pager!!.context, OvershootInterpolator(0.6f))
+        val vpc = ViewPagerScroller(view_pager!!.context, OvershootInterpolator(0.6f))
         f.set(view_pager, vpc)
         vpc.duration = 700
 

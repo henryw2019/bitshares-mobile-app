@@ -8,7 +8,6 @@ import android.view.View
 import android.view.animation.OvershootInterpolator
 import android.widget.Button
 import bitshares.Promise
-import bitshares.TempManager
 import kotlinx.android.synthetic.main.activity_login.*
 import org.json.JSONObject
 import java.lang.reflect.Field
@@ -21,19 +20,12 @@ class ActivityLogin : BtsppActivity() {
     private var _checkActivePermission = true
     private var _result_promise: Promise? = null
 
-    /**
-     * 系统返回键
-     */
-    override fun onBackPressed() {
-        onBackClicked()
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setAutoLayoutContentView(R.layout.activity_login)
 
         //  读取参数
-        var args = TempManager.sharedTempManager().get_args() as? JSONObject
+        val args = _btspp_params as? JSONObject
         if (args != null) {
             _checkActivePermission = args.getBoolean("checkActivePermission")
             _result_promise = args.get("result_promise") as Promise
@@ -42,7 +34,7 @@ class ActivityLogin : BtsppActivity() {
         setFullScreen()
 
         //  事件 - 返回按钮
-        layout_back_from_login.setOnClickListener { onBackClicked() }
+        layout_back_from_login.setOnClickListener { onBackClicked(false) }
 
         //  初始化界面（部分界面在某些模式下不可见）
         if (_checkActivePermission) {
@@ -73,10 +65,8 @@ class ActivityLogin : BtsppActivity() {
     /**
      * 事件 - 返回按钮或系统返回键点击。
      */
-    private fun onBackClicked() {
-        if (_result_promise != null) {
-            _result_promise!!.resolve(false)
-        }
+    override fun onBackClicked(result: Any?) {
+        _result_promise?.resolve(result)
         finish()
     }
 
@@ -107,6 +97,7 @@ class ActivityLogin : BtsppActivity() {
 
     private fun setFragments() {
         fragmens.add(FragmentLoginAccountMode().initWithCheckActivePermission(_checkActivePermission, _result_promise))
+        fragmens.add(FragmentLoginBrainKeyMode().initWithCheckActivePermission(_checkActivePermission, _result_promise))
         fragmens.add(FragmentLoginPrivateKeyMode().initWithCheckActivePermission(_checkActivePermission, _result_promise))
         //  正常登录模式
         if (_checkActivePermission) {

@@ -1,0 +1,19 @@
+/* InfoPlist.strings
+  oplayer
+
+  Created by Aonichan on 15/12/1. */
+
+"CFBundleDisplayName" = "BitShares";
+
+"NSCalendarsUsageDescription" = "旅程のリマインダーを追加するときは、カレンダーにアクセスする必要があります。";
+
+"NSCameraUsageDescription" = "写真を撮るときはカメラにアクセスする必要があります。";
+
+"NSPhotoLibraryUsageDescription" = "写真を選ぶときは、フォトアルバムにアクセスする必要があります。";
+
+"NSMicrophoneUsageDescription" = "音声入力を使用するときは、マイクにアクセスする必要があります。";
+
+"NSLocationAlwaysUsageDescription" = "ロードマップ機能を使用するときは、自分の位置情報にアクセスする必要があります。";
+
+"NSLocationWhenInUseUsageDescription" = "ロードマップ機能を使用するときは、自分の位置情報にアクセスする必要があります。";
+

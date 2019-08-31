@@ -39,7 +39,7 @@ class ActivityProposal : BtsppActivity() {
         val account_name_list = WalletManager.sharedWalletManager().getWalletAccountNameList()
         assert(account_name_list.length() > 0)
 
-        val mask = ViewMesk(resources.getString(R.string.nameRequesting), this)
+        val mask = ViewMask(resources.getString(R.string.kTipsBeRequesting), this)
         mask.show()
 
         val chainMgr = ChainObjectManager.sharedChainObjectManager()
@@ -56,6 +56,7 @@ class ActivityProposal : BtsppActivity() {
             val proposal_marked = JSONObject()
             //  查询依赖
             val query_ids = JSONObject()
+            val skip_cache_ids = JSONObject()
             //  遍历所有提案
             array_list.forEach<Any> {
                 val proposals = it as? JSONArray
@@ -74,10 +75,22 @@ class ActivityProposal : BtsppActivity() {
                         }
 
                         query_ids.put(proposal.getString("proposer"), true)
-                        proposal.getJSONArray("available_active_approvals").forEach<String> { uid -> query_ids.put(uid, true) }
-                        proposal.getJSONArray("available_owner_approvals").forEach<String> { uid -> query_ids.put(uid, true) }
-                        proposal.getJSONArray("required_active_approvals").forEach<String> { uid -> query_ids.put(uid, true) }
-                        proposal.getJSONArray("required_owner_approvals").forEach<String> { uid -> query_ids.put(uid, true) }
+                        proposal.getJSONArray("available_active_approvals").forEach<String> { uid ->
+                            query_ids.put(uid, true)
+                            skip_cache_ids.put(uid, true)
+                        }
+                        proposal.getJSONArray("available_owner_approvals").forEach<String> { uid ->
+                            query_ids.put(uid, true)
+                            skip_cache_ids.put(uid, true)
+                        }
+                        proposal.getJSONArray("required_active_approvals").forEach<String> { uid ->
+                            query_ids.put(uid, true)
+                            skip_cache_ids.put(uid, true)
+                        }
+                        proposal.getJSONArray("required_owner_approvals").forEach<String> { uid ->
+                            query_ids.put(uid, true)
+                            skip_cache_ids.put(uid, true)
+                        }
 
                         val operations = proposal.getJSONObject("proposed_transaction").getJSONArray("operations")
                         operations.forEach<JSONArray> { ary ->
@@ -93,8 +106,9 @@ class ActivityProposal : BtsppActivity() {
                     }
                 }
             }
-            return@then chainMgr.queryAllGrapheneObjects(query_ids.keys().toJSONArray()).then {
+            return@then chainMgr.queryAllGrapheneObjects(query_ids.keys().toJSONArray(), skip_cache_ids).then {
                 //  二次查询依赖
+                //  1、查询提案账号权限中的多签成员/代理人等名字信息等。
                 val query_account_ids = JSONObject()
                 proposal_list.forEach<JSONObject> { proposal ->
                     proposal!!.getJSONArray("required_active_approvals").forEach<String> { uid ->
@@ -104,6 +118,10 @@ class ActivityProposal : BtsppActivity() {
                             assert(item!!.length() == 2)
                             query_account_ids.put(item.getString(0), true)
                         }
+                        val voting_account = account.getJSONObject("options").getString("voting_account")
+                        if (voting_account != BTS_GRAPHENE_PROXY_TO_SELF) {
+                            query_account_ids.put(voting_account, true)
+                        }
                     }
                     proposal.getJSONArray("required_owner_approvals").forEach<String> { uid ->
                         val account = chainMgr.getChainObjectByID(uid!!)
@@ -112,17 +130,84 @@ class ActivityProposal : BtsppActivity() {
                             assert(item!!.length() == 2)
                             query_account_ids.put(item.getString(0), true)
                         }
+                        val voting_account = account.getJSONObject("options").getString("voting_account")
+                        if (voting_account != BTS_GRAPHENE_PROXY_TO_SELF) {
+                            query_account_ids.put(voting_account, true)
+                        }
                     }
                 }
-                return@then chainMgr.queryAllAccountsInfo(query_account_ids.keys().toJSONArray()).then {
-                    mask.dismiss()
-                    onQueryAllProposalsResponse(proposal_list)
-                    return@then null
+
+                //  2、更新账号信息时候查询投票信息
+                //  新vote_id
+                val new_vote_id_hash = JSONObject()
+                proposal_list.forEach<JSONObject> { proposal ->
+                    val operations = proposal!!.getJSONObject("proposed_transaction").getJSONArray("operations")
+                    operations.forEach<JSONArray> { it ->
+                        val ary = it!!
+                        assert(ary.length() == 2)
+                        val opcode = ary.getInt(0)
+                        if (opcode == EBitsharesOperations.ebo_account_update.value) {
+                            val opdata = ary.getJSONObject(1)
+                            val new_options = opdata.optJSONObject("new_options")
+                            if (new_options != null) {
+                                val votes = new_options.optJSONArray("votes")
+                                if (votes != null && votes.length() > 0) {
+                                    votes.forEach<String> { vote_id ->
+                                        new_vote_id_hash.put(vote_id, true)
+                                    }
+                                }
+                                val voting_account = new_options.getString("voting_account")
+                                if (voting_account != BTS_GRAPHENE_PROXY_TO_SELF) {
+                                    query_account_ids.put(voting_account, true)
+                                }
+                            }
+                        }
+                    }
+                }
+                //  老vote_id
+                skip_cache_ids.keys().toJSONArray().forEach<String> { it ->
+                    val account_id = it!!
+                    val account = chainMgr.getChainObjectByID(account_id)
+                    val options = account.optJSONObject("options")
+                    val votes = options?.optJSONArray("votes")
+                    if (votes != null && votes.length() > 0) {
+                        votes.forEach<String> { vote_id ->
+                            new_vote_id_hash.put(vote_id, true)
+                        }
+                    }
+                }
+
+                val vote_id_list = new_vote_id_hash.keys().toJSONArray()
+
+                val p1 = chainMgr.queryAllGrapheneObjects(query_account_ids.keys().toJSONArray())
+                val p2 = chainMgr.queryAllVoteIds(vote_id_list)
+
+                return@then Promise.all(p1, p2).then { data ->
+                    //  第三次查询依赖（投票信息中的见证人理事会成员名字等）
+                    val query_ids_3rd = JSONObject()
+                    vote_id_list.forEach<String> { it ->
+                        val vote_id = it!!
+                        val vote_info = chainMgr.getVoteInfoByVoteID(vote_id)
+                        val committee_member_account = vote_info!!.optString("committee_member_account", null)
+                        if (committee_member_account != null) {
+                            query_ids_3rd.put(committee_member_account, true)
+                        } else {
+                            val witness_account = vote_info.optString("witness_account", null)
+                            if (witness_account != null) {
+                                query_ids_3rd.put(witness_account, true)
+                            }
+                        }
+                    }
+                    return@then chainMgr.queryAllGrapheneObjects(query_ids_3rd.keys().toJSONArray()).then { data ->
+                        mask.dismiss()
+                        onQueryAllProposalsResponse(proposal_list)
+                        return@then null
+                    }
                 }
             }
         }.catch {
             mask.dismiss()
-            showToast(resources.getString(R.string.nameNetworkException))
+            showToast(resources.getString(R.string.tip_network_error))
         }
     }
 
@@ -182,7 +267,7 @@ class ActivityProposal : BtsppActivity() {
 
             //  获取当前授权状态（有哪些实体已授权、哪些未授权）
             var currThreshold = 0
-            var passThreshold = permissions!!.getInt("weight_threshold")
+            val passThreshold = permissions!!.getInt("weight_threshold")
             assert(passThreshold > 0)
             val availableHash = JSONObject()
             proposal.getJSONArray("available_active_approvals").forEach<String> { key ->
@@ -232,7 +317,7 @@ class ActivityProposal : BtsppActivity() {
                 assert(ary!!.length() == 2)
                 val opcode = ary.getInt(0)
                 val opdata = ary.getJSONObject(1)
-                val new_op = jsonObjectfromKVS("opcode", opcode, "opdata", opdata, "uidata", OrgUtils.processOpdata2UiData(opcode, opdata, true, this))
+                val new_op = jsonObjectfromKVS("opcode", opcode, "opdata", opdata, "uidata", OrgUtils.processOpdata2UiData(opcode, opdata, null, true, this))
                 new_operations.put(new_op)
             }
 
@@ -311,7 +396,7 @@ class ActivityProposal : BtsppActivity() {
         tv_line1_right_params.gravity = Gravity.RIGHT
         tv_line1_right.layoutParams = tv_line1_right_params
 
-        tv_line1_right.text = String.format(R.string.myOrderPageExpire.xmlstring(ctx), Utils.fmtLimitOrderTimeShowString(proposal.getString("expiration_time")))
+        tv_line1_right.text = String.format(R.string.kVcOrderExpired.xmlstring(ctx), Utils.fmtLimitOrderTimeShowString(proposal.getString("expiration_time")))
         tv_line1_right.setTextSize(TypedValue.COMPLEX_UNIT_DIP, form_font_size)
         tv_line1_right.setTextColor(resources.getColor(R.color.theme01_textColorGray))
         tv_line1_right.gravity = Gravity.RIGHT
@@ -432,8 +517,8 @@ class ActivityProposal : BtsppActivity() {
         val bApprovalPassed = currThreshold >= passThreshold
         val bInReview = proposalProcessedData.getBoolean("inReview")
 
-        var status: String
-        var statusColor: Int
+        val status: String
+        val statusColor: Int
         if (bApprovalPassed) {
             if (proposal.has("review_period_time")) {
                 if (bInReview) {
@@ -496,13 +581,28 @@ class ActivityProposal : BtsppActivity() {
 
         val newOperations = proposalProcessedData.getJSONArray("newOperations")
         newOperations.forEach<JSONObject> {
-            layout5_opinfos.addView(ViewUtils.createProposalOpInfoCell(this, it!!.getJSONObject("uidata"), useBuyColorForTitle = true))
-            val lv_line = View(this)
-            lv_line.setBackgroundColor(resources.getColor(R.color.theme01_bottomLineColor))
-            val lv_line_layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1.dp)
-            lv_line_layoutParams.topMargin = 6.dp
-            lv_line.layoutParams = lv_line_layoutParams
-            layout5_opinfos.addView(lv_line)
+            val operation = it!!
+            val bNormalDesc: Boolean
+            when (operation.getInt("opcode")) {
+                EBitsharesOperations.ebo_account_update.value -> {
+                    val view = ViewProposalAccountUpdate(this, operation, true)
+                    bNormalDesc = view._useNormalDescLabel
+                    layout5_opinfos.addView(view)
+                }
+                else -> {
+                    bNormalDesc = true
+                    layout5_opinfos.addView(ViewUtils.createProposalOpInfoCell(this, operation.getJSONObject("uidata"), useBuyColorForTitle = true))
+                }
+            }
+            if (bNormalDesc) {
+                val lv_line = View(this)
+                lv_line.setBackgroundColor(resources.getColor(R.color.theme01_bottomLineColor))
+                lv_line.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1.dp).apply {
+                    topMargin = 6.dp
+                }
+                layout5_opinfos.addView(lv_line)
+            }
+
         }
 
         // 第六话  批准   否决
@@ -512,20 +612,18 @@ class ActivityProposal : BtsppActivity() {
         layout6_actions.orientation = LinearLayout.HORIZONTAL
         layout6_params.setMargins(0, 10, 0, 10)
 
-        val tv6_left_params = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        val tv6_left_params = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
         val tv6_left = TextView(this)
         tv6_left.layoutParams = tv6_left_params
-        // tv6_left.gravity = Gravity.LEFT
         tv6_left.text = R.string.kProposalCellBtnApprove.xmlstring(this)
-        tv6_left.gravity = Gravity.CENTER
+        tv6_left.gravity = Gravity.CENTER or Gravity.CENTER_VERTICAL
         tv6_left.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14.0f)
         tv6_left.setTextColor(resources.getColor(R.color.theme01_textColorHighlight))
 
         val tv6_right = TextView(this)
         tv6_right.layoutParams = tv6_left_params
-        // tv6_right.gravity = Gravity.LEFT
         tv6_right.text = R.string.kProposalCellBtnNotApprove.xmlstring(this)
-        tv6_right.gravity = Gravity.CENTER
+        tv6_right.gravity = Gravity.CENTER or Gravity.CENTER_VERTICAL
         tv6_right.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14.0f)
         tv6_right.setTextColor(resources.getColor(R.color.theme01_textColorHighlight))
 
@@ -573,6 +671,46 @@ class ActivityProposal : BtsppActivity() {
      * 事件 - 批准按钮点击
      */
     private fun onApproveClicked(proposal: JSONObject) {
+        //  REMARK：查询提案发起者是否处于黑名单中，黑名单中不可批准。
+        val chainMgr = ChainObjectManager.sharedChainObjectManager()
+
+        val mask = ViewMask(R.string.kTipsBeRequesting.xmlstring(this), this)
+        mask.show()
+
+        chainMgr.queryAllGrapheneObjectsSkipCache(jsonArrayfrom(BTS_GRAPHENE_ACCOUNT_BTSPP_TEAM)).then {
+            mask.dismiss()
+            val account = chainMgr.getChainObjectByID(BTS_GRAPHENE_ACCOUNT_BTSPP_TEAM)
+            val blacklisted_accounts = account.optJSONArray("blacklisted_accounts")
+            val proposer_uid = proposal.getString("proposer")
+            val proposer_account = chainMgr.getChainObjectByID(proposer_uid)
+            val proposer_registrar = proposer_account.getString("registrar")
+
+            var in_blacklist = false
+            if (blacklisted_accounts != null && blacklisted_accounts.length() > 0) {
+                for (uid in blacklisted_accounts.forin<String>()) {
+                    //  发起账号 or 发起账号的注册者 在黑名单种，均存在风险。
+                    if (uid!! == proposer_uid || uid == proposer_registrar) {
+                        in_blacklist = true
+                        break
+                    }
+                }
+            }
+
+            if (in_blacklist) {
+                UtilsAlert.showMessageConfirm(this, resources.getString(R.string.kWarmTips), String.format(R.string.kProposalSubmitTipsBlockedApprovedForBlackList.xmlstring(this), proposer_account.getString("name")), btn_cancel = null).then {
+                    return@then null
+                }
+            } else {
+                _gotoApproveCore(proposal)
+            }
+            return@then null
+        }.catch {
+            mask.dismiss()
+            showToast(R.string.tip_network_error.xmlstring(this))
+        }
+    }
+
+    private fun _gotoApproveCore(proposal: JSONObject) {
         //  审核中：仅可移除授权，不可添加授权。
         val kProcessedData = proposal.getJSONObject("kProcessedData")
         if (kProcessedData.getBoolean("inReview")) {
@@ -720,7 +858,7 @@ class ActivityProposal : BtsppActivity() {
             }
         } else {
             //  普通交易：请求网络广播
-            val mask = ViewMesk(R.string.nameRequesting.xmlstring(this), this)
+            val mask = ViewMask(R.string.kTipsBeRequesting.xmlstring(this), this)
             mask.show()
             BitsharesClientManager.sharedBitsharesClientManager().proposalUpdate(opdata).then {
                 mask.dismiss()
@@ -730,7 +868,7 @@ class ActivityProposal : BtsppActivity() {
                     showToast(R.string.kProposalSubmitTxTipsAddApprovalOK.xmlstring(this))
                 }
                 //  [统计]
-                fabricLogCustom("txProposalUpdateFullOK", jsonObjectfromKVS("account", fee_paying_account))
+                btsppLogCustom("txProposalUpdateFullOK", jsonObjectfromKVS("account", fee_paying_account))
                 //  刷新
                 queryAllProposals()
                 return@then null
@@ -738,7 +876,7 @@ class ActivityProposal : BtsppActivity() {
                 mask.dismiss()
                 showGrapheneError(err)
                 //  [统计]
-                fabricLogCustom("txProposalUpdateFailed", jsonObjectfromKVS("account", fee_paying_account))
+                btsppLogCustom("txProposalUpdateFailed", jsonObjectfromKVS("account", fee_paying_account))
             }
         }
     }
@@ -766,16 +904,19 @@ class ActivityProposal : BtsppActivity() {
         val walletMgr = WalletManager.sharedWalletManager()
         val idAccountDataHash = walletMgr.getAllAccountDataHash(false)
         availableHash.keys().forEach { key ->
-            val item = needAuthorizeHash.getJSONObject(key)
-            if (item.optBoolean("isaccount")) {
-                val account_data = idAccountDataHash.optJSONObject(key)
-                if (account_data != null) {
-                    rejectArray.put(item)
-                }
-            } else {
-                assert(item.optBoolean("iskey"))
-                if (walletMgr.havePrivateKey(key)) {
-                    rejectArray.put(item)
+            //  REMARK：批准之后被刷掉了，无权限了，则不存在于需要授权列表了。
+            val item = needAuthorizeHash.optJSONObject(key)
+            if (item != null) {
+                if (item.optBoolean("isaccount")) {
+                    val account_data = idAccountDataHash.optJSONObject(key)
+                    if (account_data != null) {
+                        rejectArray.put(item)
+                    }
+                } else {
+                    assert(item.optBoolean("iskey"))
+                    if (walletMgr.havePrivateKey(key)) {
+                        rejectArray.put(item)
+                    }
                 }
             }
         }

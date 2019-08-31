@@ -233,7 +233,7 @@ enum
                   invoke_proposal_callback:NO
                                     opdata:op_data
                                  opaccount:account_data
-                                      body:^(BOOL isProposal, NSDictionary *fee_paying_account)
+                                      body:^(BOOL isProposal, NSDictionary *proposal_create_args)
      {
          assert(!isProposal);
          //  请求网络广播
@@ -245,21 +245,21 @@ enum
                  [self _refresh_ui:vote_info];
                  [OrgUtils makeToast:[NSString stringWithFormat:NSLocalizedString(@"kVcVoteTipTxFullOK", @"%@成功。"), title]];
                  //  [统计]
-                 [Answers logCustomEventWithName:@"txVotingFullOK" customAttributes:@{@"account":account_id}];
+                 [OrgUtils logEvents:@"txVotingFullOK" params:@{@"account":account_id}];
                  return nil;
              })] catch:(^id(id error) {
                  [self hideBlockView];
                  [OrgUtils makeToast:[NSString stringWithFormat:NSLocalizedString(@"kVcVoteTipTxOK", @"%@成功，但刷新界面失败，请稍后再试。"), title]];
                  //  [统计]
-                 [Answers logCustomEventWithName:@"txVotingOK" customAttributes:@{@"account":account_id}];
+                 [OrgUtils logEvents:@"txVotingOK" params:@{@"account":account_id}];
                  return nil;
              })];
              return nil;
          })] catch:(^id(id error) {
              [self hideBlockView];
-             [OrgUtils makeToast:NSLocalizedString(@"kTipsTxRequestFailed", @"请求失败，请稍后再试。")];
+             [OrgUtils showGrapheneError:error];
              //  [统计]
-             [Answers logCustomEventWithName:@"txVotingFailed" customAttributes:@{@"account":account_id}];
+             [OrgUtils logEvents:@"txVotingFailed" params:@{@"account":account_id}];
              return nil;
          })];
      }];
@@ -1035,40 +1035,40 @@ enum
         case kSecTypeCommitteeActive:
         {
             //  [统计]
-            [Answers logCustomEventWithName:@"qa_tip_click" customAttributes:@{@"qa":@"qa_committee"}];
-            url = @"http://btspp.io/qam.html#qa_committee";
+            [OrgUtils logEvents:@"qa_tip_click" params:@{@"qa":@"qa_committee"}];
+            url = @"https://btspp.io/qam.html#qa_committee";
             title = NSLocalizedString(@"kVcVoteWhatIsActiveCommittee", @"什么是活跃理事会？");
         }
             break;
         case kSecTypeCommitteeCandidate:
         {
             //  [统计]
-            [Answers logCustomEventWithName:@"qa_tip_click" customAttributes:@{@"qa":@"qa_committee_c"}];
-            url = @"http://btspp.io/qam.html#qa_committee_c";
+            [OrgUtils logEvents:@"qa_tip_click" params:@{@"qa":@"qa_committee_c"}];
+            url = @"https://btspp.io/qam.html#qa_committee_c";
             title = NSLocalizedString(@"kVcVoteWhatIsStandbyCommittee", @"什么是候选理事会？");
         }
             break;
         case kSecTypeWitnessActive:
         {
             //  [统计]
-            [Answers logCustomEventWithName:@"qa_tip_click" customAttributes:@{@"qa":@"qa_witness"}];
-            url = @"http://btspp.io/qam.html#qa_witness";
+            [OrgUtils logEvents:@"qa_tip_click" params:@{@"qa":@"qa_witness"}];
+            url = @"https://btspp.io/qam.html#qa_witness";
             title = NSLocalizedString(@"kVcVoteWhatIsActiveWitness", @"什么是活跃见证人？");
         }
             break;
         case kSecTypeWitnessCandidate:
         {
             //  [统计]
-            [Answers logCustomEventWithName:@"qa_tip_click" customAttributes:@{@"qa":@"qa_witness_c"}];
-            url = @"http://btspp.io/qam.html#qa_witness_c";
+            [OrgUtils logEvents:@"qa_tip_click" params:@{@"qa":@"qa_witness_c"}];
+            url = @"https://btspp.io/qam.html#qa_witness_c";
             title = NSLocalizedString(@"kVcVoteWhatIsStandbyWitness", @"什么是候选见证人？");
         }
             break;
         case kBtnTagProxyHelp:
         {
             //  [统计]
-            [Answers logCustomEventWithName:@"qa_tip_click" customAttributes:@{@"qa":@"qa_proxy"}];
-            url = @"http://btspp.io/qam.html#qa_proxy";
+            [OrgUtils logEvents:@"qa_tip_click" params:@{@"qa":@"qa_proxy"}];
+            url = @"https://btspp.io/qam.html#qa_proxy";
             title = NSLocalizedString(@"kVcVoteWhatIsProxy", @"什么是代理人？");
         }
             break;
@@ -1116,44 +1116,37 @@ enum
         switch (kType) {
             case kSecTypeCommitteeActive:
             {
-                titleLabel.text = [NSString stringWithFormat:@"%@(%@%@)", NSLocalizedString(@"kLabelVotingActiveCommittees", @"活跃理事会"),
-                                   @(num), NSLocalizedString(@"kLabelVotingCommitteesN", @"名")];
+                titleLabel.text = [NSString stringWithFormat:NSLocalizedString(@"kLabelVotingActiveCommittees", @"活跃理事会(%@名)"), @(num)];
                 [myView addSubview:[self _genHelpButton:kType]];
             }
                 break;
             case kSecTypeCommitteeCandidate:
             {
-                titleLabel.text = [NSString stringWithFormat:@"%@(%@%@)", NSLocalizedString(@"kLabelVotingStandbyCommittees", @"候选理事会"),
-                                   @(num), NSLocalizedString(@"kLabelVotingCommitteesN", @"名")];
+                titleLabel.text = [NSString stringWithFormat:NSLocalizedString(@"kLabelVotingStandbyCommittees", @"候选理事会(%@名"), @(num)];
                 [myView addSubview:[self _genHelpButton:kType]];
             }
                 break;
             case kSecTypeWitnessActive:
             {
-                titleLabel.text = [NSString stringWithFormat:@"%@(%@%@)", NSLocalizedString(@"kLabelVotingActiveWitnesses", @"活跃见证人"),
-                                   @(num), NSLocalizedString(@"kLabelVotingWitnessesN", @"名")];
+                titleLabel.text = [NSString stringWithFormat:NSLocalizedString(@"kLabelVotingActiveWitnesses", @"活跃见证人(%@名"), @(num)];
                 [myView addSubview:[self _genHelpButton:kType]];
             }
                 break;
             case kSecTypeWitnessCandidate:
             {
-                titleLabel.text = [NSString stringWithFormat:@"%@(%@%@)", NSLocalizedString(@"kLabelVotingStandbyWitnesses", @"候选见证人"),
-                                   @(num), NSLocalizedString(@"kLabelVotingWitnessesN", @"名")];
+                titleLabel.text = [NSString stringWithFormat:NSLocalizedString(@"kLabelVotingStandbyWitnesses", @"候选见证人(%@名"), @(num)];
                 [myView addSubview:[self _genHelpButton:kType]];
             }
                 break;
             case kSecTypeWorkerExpired:
-                titleLabel.text = [NSString stringWithFormat:@"%@(%@%@)", NSLocalizedString(@"kLabelVotingExpiredWP", @"过期预算项目"),
-                                   @(num), NSLocalizedString(@"kLabelVotingWorkersN", @"个")];
+                titleLabel.text = [NSString stringWithFormat:NSLocalizedString(@"kLabelVotingExpiredWP", @"过期预算项目(%@个)"), @(num)];
                 break;
             case kSecTypeWorkerNotExpired:
-                titleLabel.text = [NSString stringWithFormat:@"%@(%@%@)", NSLocalizedString(@"kLabelVotingNotExpiredWP", @"进行中预算项目"),
-                                   @(num), NSLocalizedString(@"kLabelVotingWorkersN", @"个")];
+                titleLabel.text = [NSString stringWithFormat:NSLocalizedString(@"kLabelVotingNotExpiredWP", @"进行中预算项目(%@个)"), @(num)];
                 break;
             case kSecTypeWorkerActive:
             {
-                titleLabel.text = [NSString stringWithFormat:@"%@(%@%@)", NSLocalizedString(@"kLabelVotingActiveWP", @"活跃预算项目"),
-                                   @(num), NSLocalizedString(@"kLabelVotingWorkersN", @"个")];
+                titleLabel.text = [NSString stringWithFormat:NSLocalizedString(@"kLabelVotingActiveWP", @"活跃预算项目(%@个)"), @(num)];
                 
                 assert(_nTotalBudget);
                 UILabel* secLabel = [[UILabel alloc] initWithFrame:CGRectMake(12, 0, fWidth - 24, 44)];
@@ -1170,8 +1163,7 @@ enum
                 break;
             case kSecTypeWorkerInactive:
             {
-                titleLabel.text = [NSString stringWithFormat:@"%@(%@%@)", NSLocalizedString(@"kLabelVotingInactiveWP", @"提案预算项目"),
-                                   @(num), NSLocalizedString(@"kLabelVotingWorkersN", @"个")];
+                titleLabel.text = [NSString stringWithFormat:NSLocalizedString(@"kLabelVotingInactiveWP", @"提案预算项目(%@个)"), @(num)];
                 
                 assert(_nActiveMinVoteNum);
                 UILabel* secLabel = [[UILabel alloc] initWithFrame:CGRectMake(12, 0, fWidth - 24, 44)];

@@ -12,9 +12,7 @@ import android.widget.EditText
 import android.widget.ImageView
 import android.widget.LinearLayout
 import bitshares.*
-import com.fowallet.walletcore.bts.ChainObjectManager
-import com.fowallet.walletcore.bts.WalletManager
-import org.json.JSONObject
+import com.btsplusplus.fowallet.utils.CommonLogic
 
 
 // TODO: Rename parameter arguments, choose names that match
@@ -63,13 +61,13 @@ class FragmentLoginPrivateKeyMode : Fragment() {
     private fun loginBitshares_PrivateKeyMode(active_privatekey: String, trade_password: String) {
         //  检查参数有效性
         if (active_privatekey == "") {
-            showToast(_ctx!!.resources.getString(R.string.registerLoginPageCapitalPrivateKeyIsWrongAndInputAgain))
+            showToast(_ctx!!.resources.getString(R.string.kLoginSubmitTipsInvalidPrivateKey))
             return
         }
 
         //  仅正常登录是才需要验证交易密码，导入到已有钱包不用验证。
         if (_checkActivePermission && !Utils.isValidBitsharesWalletPassword(trade_password)) {
-            showToast(_ctx!!.resources.getString(R.string.registerLoginPageTradePwsFormatErrorAndInputAgain))
+            showToast(_ctx!!.resources.getString(R.string.kLoginSubmitTipsTradePasswordFmtIncorrect))
             return
         }
 
@@ -78,90 +76,17 @@ class FragmentLoginPrivateKeyMode : Fragment() {
         //  从WIF私钥获取公钥。
         val calc_bts_active_address = OrgUtils.genBtsAddressFromWifPrivateKey(active_privatekey)
         if (calc_bts_active_address == null) {
-            showToast(_ctx!!.resources.getString(R.string.registerLoginPageCapitalPrivateKeyIsWrongAndInputAgain))
+            showToast(_ctx!!.resources.getString(R.string.kLoginSubmitTipsInvalidPrivateKey))
             return
         }
 
-        val mask = ViewMesk(R.string.nameRequesting.xmlstring(this.activity!!), this.activity!!)
-        mask.show()
-        ChainObjectManager.sharedChainObjectManager().queryAccountDataHashFromKeys(jsonArrayfrom(calc_bts_active_address)).then {
-            val account_data_hash = it as JSONObject
-            if (account_data_hash.length() <= 0) {
-                mask.dismiss()
-                showToast(_ctx!!.resources.getString(R.string.registerLoginPageCapitalPrivateKeyIsWrongAndInputAgain))
-                return@then null
-            }
-            val account_data_list = account_data_hash.values()
-            if (account_data_list.length() >= 2) {
-                //  TODO:一个私钥关联多个账号的情况处理
-            }
-            //  默认选择第一个账号
-            val account_data = account_data_list.getJSONObject(0)
-            return@then ChainObjectManager.sharedChainObjectManager().queryFullAccountInfo(account_data.getString("id")).then {
-                mask.dismiss()
-                val full_data = it as? JSONObject
-                if (full_data == null) {
-                    showToast(_ctx!!.resources.getString(R.string.registerLoginPageAccountQueryFailedAndTryLater))
-                    return@then null
-                }
-                val account = full_data.getJSONObject("account")
-                val accountName = account.getString("name")
-
-                //  正常私钥登录需要验证权限，导入到已有钱包则不用验证。
-                if (_checkActivePermission) {
-                    //  获取active权限数据
-                    val account_active = account.getJSONObject("active")
-
-                    //  检测权限是否足够签署需要active权限的交易。
-                    val status = WalletManager.calcPermissionStatus(account_active, jsonObjectfromKVS(calc_bts_active_address, active_privatekey))
-                    if (status == EAccountPermissionStatus.EAPS_NO_PERMISSION) {
-                        showToast(R.string.kLoginSubmitTipsPrivateKeyIncorrect.xmlstring(_ctx!!))
-                        return@then null
-                    }
-                    if (status == EAccountPermissionStatus.EAPS_PARTIAL_PERMISSION) {
-                        showToast(R.string.kLoginSubmitTipsPrivateKeyPermissionNotEnough.xmlstring(_ctx!!))
-                        return@then null
-                    }
-                }
-
-                if (_checkActivePermission) {
-                    //  【正常登录】完整钱包模式
-                    val full_wallet_bin = WalletManager.sharedWalletManager().genFullWalletData(activity!!, accountName, active_privatekey, null, null, trade_password)
-                    //  保存钱包信息
-                    AppCacheManager.sharedAppCacheManager().setWalletInfo(AppCacheManager.EWalletMode.kwmPrivateKeyWithWallet.value, full_data, accountName, full_wallet_bin)
-                    AppCacheManager.sharedAppCacheManager().autoBackupWalletToWebdir(false)
-                    //  导入成功 用交易密码 直接解锁。
-                    val unlockInfos = WalletManager.sharedWalletManager().unLock(trade_password, _ctx!!)
-                    assert(unlockInfos.getBoolean("unlockSuccess") && unlockInfos.optBoolean("haveActivePermission"))
-                    //  [统计]
-                    fabricLogCustom("loginEvent", jsonObjectfromKVS("mode", AppCacheManager.EWalletMode.kwmPrivateKeyWithWallet.value, "desc", "privatekey"))
-                    //  返回 - 登录成功
-                    showToast(_ctx!!.resources.getString(R.string.registerLoginPageLoginSuccess))
-                    activity!!.finish()
-                } else {
-                    //  【导入到已有钱包】
-                    val full_wallet_bin = WalletManager.sharedWalletManager().walletBinImportAccount(accountName, jsonArrayfrom(active_privatekey))!!
-                    AppCacheManager.sharedAppCacheManager().apply {
-                        updateWalletBin(full_wallet_bin)
-                        autoBackupWalletToWebdir(false)
-                    }
-                    //  重新解锁（即刷新解锁后的账号信息）。
-                    val unlockInfos = WalletManager.sharedWalletManager().reUnlock(_ctx!!)
-                    assert(unlockInfos.getBoolean("unlockSuccess"))
-
-                    //  返回 - 导入成功
-                    showToast(R.string.kWalletImportSuccess.xmlstring(_ctx!!))
-                    if (_result_promise != null) {
-                        _result_promise!!.resolve(true)
-                    }
-                    activity!!.finish()
-                }
-                return@then null
-            }
-        }.catch {
-            mask.dismiss()
-            showGrapheneError(it)
-        }
+        //  从各种私钥登录。
+        CommonLogic.loginWithKeyHashs(activity!!, jsonObjectfromKVS(calc_bts_active_address, active_privatekey), _checkActivePermission, trade_password,
+                AppCacheManager.EWalletMode.kwmPrivateKeyWithWallet.value,
+                "login with privatekey",
+                R.string.kLoginSubmitTipsPrivateKeyIncorrect.xmlstring(_ctx!!),
+                R.string.kLoginSubmitTipsPermissionNotEnoughAndCannotBeImported.xmlstring(_ctx!!),
+                _result_promise)
     }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?,
@@ -177,13 +102,13 @@ class FragmentLoginPrivateKeyMode : Fragment() {
         }
         v.findViewById<ImageView>(R.id.tip_link_active_privatekey).setOnClickListener {
             //  [统计]
-            fabricLogCustom("qa_tip_click", jsonObjectfromKVS("qa", "qa_active_privatekey"))
-            activity!!.goToWebView(_ctx!!.resources.getString(R.string.registerLoginPageWhatIsCapitalPrivateKey), "http://btspp.io/qam.html#qa_active_privatekey")
+            btsppLogCustom("qa_tip_click", jsonObjectfromKVS("qa", "qa_active_privatekey"))
+            activity!!.goToWebView(_ctx!!.resources.getString(R.string.kVcTitleWhatIsActivePrivateKey), "https://btspp.io/qam.html#qa_active_privatekey")
         }
         v.findViewById<ImageView>(R.id.tip_link_trading_password).setOnClickListener {
             //  [统计]
-            fabricLogCustom("qa_tip_click", jsonObjectfromKVS("qa", "qa_trading_password"))
-            activity!!.goToWebView(_ctx!!.resources.getString(R.string.registerLoginPageWhatIsTradePws), "http://btspp.io/qam.html#qa_trading_password")
+            btsppLogCustom("qa_tip_click", jsonObjectfromKVS("qa", "qa_trading_password"))
+            activity!!.goToWebView(_ctx!!.resources.getString(R.string.kVcTitleWhatIsTradePassowrd), "https://btspp.io/qam.html#qa_trading_password")
         }
         //  导入到已有钱包：隐藏交易密码。
         if (!_checkActivePermission) {

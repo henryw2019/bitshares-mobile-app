@@ -33,6 +33,10 @@
  *  更新帐号信息（投票 TODO:fowallet 目前仅支持修改new_options)
  */
 - (WsPromise*)accountUpdate:(NSDictionary*)account_update_op_data;
+/**
+ *  OP - 升级帐号
+ */
+- (WsPromise*)accountUpgrade:(NSDictionary*)op_data;
 - (WsPromise*)callOrderUpdate:(NSDictionary*)callorder_update_op;
 - (WsPromise*)createLimitOrder:(NSDictionary*)limit_order_op;
 - (WsPromise*)cancelLimitOrders:(NSArray*)cancel_limit_order_op_array;
@@ -55,11 +59,34 @@
 /**
  *  创建提案
  */
-- (WsPromise*)proposalCreate:(EBitsharesOperations)opcode opdata:(id)opdata opaccount:(id)opaccount fee_paying_account:(NSString*)fee_paying_account;
+- (WsPromise*)proposalCreate:(EBitsharesOperations)opcode
+                      opdata:(id)opdata
+                   opaccount:(id)opaccount
+        proposal_create_args:(id)proposal_create_args;
 
 /**
  *  OP - 更新提案（添加授权or移除授权）
  */
 - (WsPromise*)proposalUpdate:(NSDictionary*)opdata;
+
+/**
+ *  OP - 更新资产发行者
+ */
+- (WsPromise*)assetUpdateIssuer:(NSDictionary*)opdata;
+
+/**
+ *  OP - 创建HTLC合约
+ */
+- (WsPromise*)htlcCreate:(NSDictionary*)opdata;
+
+/**
+ *  OP - 提取HTLC合约
+ */
+- (WsPromise*)htlcRedeem:(NSDictionary*)opdata;
+
+/**
+ *  OP - 扩展HTLC合约有效期
+ */
+- (WsPromise*)htlcExtend:(NSDictionary*)opdata;
 
 @end

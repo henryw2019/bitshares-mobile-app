@@ -61,8 +61,6 @@ enum
 
 @implementation VCLoginPasswordMode
 
-@synthesize tmpUsername, tmpPassword;
-
 -(void)dealloc
 {
     _owner = nil;
@@ -125,6 +123,8 @@ enum
     }
     
     //  颜色字号下划线
+    _tf_username.updateClearButtonTintColor = YES;
+    _tf_password.updateClearButtonTintColor = YES;
     _tf_username.textColor = [ThemeManager sharedThemeManager].textColorMain;
     _tf_password.textColor = [ThemeManager sharedThemeManager].textColorMain;
     _tf_username.attributedPlaceholder = [[NSAttributedString alloc] initWithString:_tf_username.placeholder
@@ -134,6 +134,7 @@ enum
                                                                          attributes:@{NSForegroundColorAttributeName:[ThemeManager sharedThemeManager].textColorGray,
                                                                                       NSFontAttributeName:[UIFont systemFontOfSize:17]}];
     if (_tf_trade_password){
+        _tf_trade_password.updateClearButtonTintColor = YES;
         _tf_trade_password.textColor = [ThemeManager sharedThemeManager].textColorMain;
         _tf_trade_password.attributedPlaceholder = [[NSAttributedString alloc] initWithString:_tf_trade_password.placeholder
                                                                                    attributes:@{NSForegroundColorAttributeName:[ThemeManager sharedThemeManager].textColorGray,
@@ -160,17 +161,6 @@ enum
 -(void)viewWillAppear:(BOOL)animated
 {
     [super viewWillAppear:animated];
-    if (self.tmpUsername)
-    {
-        _tf_username.text = self.tmpUsername;
-        self.tmpUsername = nil;
-    }
-    if (self.tmpPassword)
-    {
-        _tf_password.text = self.tmpPassword;
-        self.tmpPassword = nil;
-    }
-    //  TODO:fowallet _tf_trade_password
 }
 
 -(void)viewDidAppear:(BOOL)animated
@@ -260,12 +250,15 @@ enum
         id active_seed = [NSString stringWithFormat:@"%@active%@", pUsername, pPassword];
         id calc_bts_active_address = [OrgUtils genBtsAddressFromPrivateKeySeed:active_seed];
         
-        //  检测权限是否足够签署需要active权限的交易。
+        //  权限检查
         EAccountPermissionStatus status = [WalletManager calcPermissionStatus:account_active privateKeysHash:@{calc_bts_active_address:@YES}];
+        //  a、无任何权限，不导入。
         if (status == EAPS_NO_PERMISSION){
             [OrgUtils makeToast:NSLocalizedString(@"kLoginSubmitTipsAccountPasswordIncorrect", @"密码不正确，请重新输入。")];
             return nil;
-        }else if (status == EAPS_PARTIAL_PERMISSION){
+        }
+        //  b、部分权限，仅在导入钱包可以，直接登录时不支持。
+        if (_checkActivePermission && status == EAPS_PARTIAL_PERMISSION){
             [OrgUtils makeToast:NSLocalizedString(@"kLoginSubmitTipsAccountPasswordPermissionNotEnough", @"该密码权限不足。")];
             return nil;
         }
@@ -307,9 +300,7 @@ enum
                 assert(owner_private_wif);
                 assert(active_private_wif);
                 id full_wallet_bin = [[WalletManager sharedWalletManager] genFullWalletData:pUsername
-                                                                                     active:active_private_wif
-                                                                                      owner:owner_private_wif
-                                                                                       memo:nil
+                                                                           private_wif_keys:@[active_private_wif, owner_private_wif]
                                                                             wallet_password:trade_password];
                 
                 //  保存钱包信息
@@ -324,7 +315,7 @@ enum
                        [[unlockInfos objectForKey:@"unlockSuccess"] boolValue] &&
                        [[unlockInfos objectForKey:@"haveActivePermission"] boolValue]);
                 //  [统计]
-                [Answers logCustomEventWithName:@"loginEvent" customAttributes:@{@"mode":@(kwmPasswordWithWallet), @"desc":@"password+wallet"}];
+                [OrgUtils logEvents:@"loginEvent" params:@{@"mode":@(kwmPasswordWithWallet), @"desc":@"password+wallet"}];
             }else{
                 //  普通帐号模式
                 [[AppCacheManager sharedAppCacheManager] setWalletInfo:kwmPasswordOnlyMode
@@ -337,7 +328,7 @@ enum
                        [[unlockInfos objectForKey:@"unlockSuccess"] boolValue] &&
                        [[unlockInfos objectForKey:@"haveActivePermission"] boolValue]);
                 //  [统计]
-                [Answers logCustomEventWithName:@"loginEvent" customAttributes:@{@"mode":@(kwmPasswordOnlyMode), @"desc":@"password"}];
+                [OrgUtils logEvents:@"loginEvent" params:@{@"mode":@(kwmPasswordOnlyMode), @"desc":@"password"}];
             }
             
             //  返回
@@ -557,28 +548,6 @@ enum
  //   [[AppCacheManager sharedAppCacheManager] setSavePassword:pSwitch.on];
 }
 
-#pragma mark-
-#pragma drag back event
-
-- (void)onDragBackStart
-{
-    [self.view endEditing:YES];
-    [_tf_password safeResignFirstResponder];
-    [_tf_username safeResignFirstResponder];
-    if (_tf_trade_password){
-        [_tf_trade_password safeResignFirstResponder];
-    }
-}
-
-- (void)onDragBackFinish:(BOOL)bToTarget
-{
-    if (!bToTarget)
-    {
-        //        [_tf_password becomeFirstResponder];
-        [_tf_username becomeFirstResponder];
-    }
-}
-
 #pragma mark- tip button
 - (void)onTipButtonClicked:(UIButton*)button
 {
@@ -586,8 +555,8 @@ enum
         case kVcSubUserTradingPassword:
         {
             //  [统计]
-            [Answers logCustomEventWithName:@"qa_tip_click" customAttributes:@{@"qa":@"qa_trading_password"}];
-            VCBtsaiWebView* vc = [[VCBtsaiWebView alloc] initWithUrl:@"http://btspp.io/qam.html#qa_trading_password"];
+            [OrgUtils logEvents:@"qa_tip_click" params:@{@"qa":@"qa_trading_password"}];
+            VCBtsaiWebView* vc = [[VCBtsaiWebView alloc] initWithUrl:@"https://btspp.io/qam.html#qa_trading_password"];
             vc.title = NSLocalizedString(@"kVcTitleWhatIsTradePassowrd", @"什么是交易密码？");
             [_owner pushViewController:vc vctitle:nil backtitle:kVcDefaultBackTitleName];
         }

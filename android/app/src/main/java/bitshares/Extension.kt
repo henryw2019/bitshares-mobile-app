@@ -9,6 +9,7 @@ import android.widget.LinearLayout
 import com.btsplusplus.fowallet.NativeInterface
 import com.crashlytics.android.answers.Answers
 import com.crashlytics.android.answers.CustomEvent
+import com.flurry.android.FlurryAgent
 import org.json.JSONArray
 import org.json.JSONObject
 import java.math.BigDecimal
@@ -53,7 +54,7 @@ fun ByteArray.utf8String() = String(this, Charsets.UTF_8)
  * 快速构造JSONArray
  */
 fun jsonArrayfrom(vararg args: Any): JSONArray {
-    var ary = JSONArray()
+    val ary = JSONArray()
     for (obj in args) {
         ary.put(obj)
     }
@@ -64,7 +65,7 @@ fun jsonArrayfrom(vararg args: Any): JSONArray {
  * 快速构造JSONObject
  */
 fun jsonObjectfromKVS(vararg args: Any): JSONObject {
-    var retv = JSONObject()
+    val retv = JSONObject()
     assert(args.size % 2 == 0)
     for (i in 0 until args.size step 2) {
         val key = args[i] as String
@@ -154,6 +155,14 @@ inline fun <reified T> List<T>.toJsonArray(): JSONArray {
 /**
  * 计算摘要信息
  */
+fun rmd160(buffer: ByteArray): ByteArray {
+    return NativeInterface.sharedNativeInterface().rmd160(buffer)
+}
+
+fun sha1(buffer: ByteArray): ByteArray {
+    return NativeInterface.sharedNativeInterface().sha1(buffer)
+}
+
 fun sha256(buffer: ByteArray): ByteArray {
     return NativeInterface.sharedNativeInterface().sha256(buffer)
 }
@@ -241,9 +250,10 @@ fun bigDecimalfromAmount(str: String, precision: Int): BigDecimal {
 }
 
 /**
- * Fabric统计
+ * Fabric/Flurry统计
  */
-fun fabricLogCustom(event_name: String, args: JSONObject? = null) {
+fun btsppLogCustom(event_name: String, args: JSONObject? = null) {
+    //  统计Fabric日志
     try {
         val event = CustomEvent(event_name)
         if (args != null) {
@@ -257,6 +267,21 @@ fun fabricLogCustom(event_name: String, args: JSONObject? = null) {
             }
         }
         Answers.getInstance().logCustom(event)
+    } catch (e: Exception) {
+        //  ...
+    }
+
+    //  统计Flurry日志
+    try {
+        if (args != null) {
+            val event_args = mutableMapOf<String, String>()
+            args.keys().forEach { key ->
+                event_args[key] = args.get(key).toString()
+            }
+            FlurryAgent.logEvent(event_name, event_args)
+        } else {
+            FlurryAgent.logEvent(event_name)
+        }
     } catch (e: Exception) {
         //  ...
     }

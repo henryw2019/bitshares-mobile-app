@@ -55,8 +55,6 @@ enum
 
 @implementation VCLoginPrivateKeyMode
 
-@synthesize tmpPassword;
-
 -(void)dealloc
 {
     _owner = nil;
@@ -111,11 +109,13 @@ enum
     }
     
     //  颜色字号下划线
+    _tf_private_key.updateClearButtonTintColor = YES;
     _tf_private_key.textColor = [ThemeManager sharedThemeManager].textColorMain;
     _tf_private_key.attributedPlaceholder = [[NSAttributedString alloc] initWithString:_tf_private_key.placeholder
                                                                          attributes:@{NSForegroundColorAttributeName:[ThemeManager sharedThemeManager].textColorGray,
                                                                                       NSFontAttributeName:[UIFont systemFontOfSize:17]}];
     if (_tf_trade_password){
+        _tf_trade_password.updateClearButtonTintColor = YES;
         _tf_trade_password.textColor = [ThemeManager sharedThemeManager].textColorMain;
         _tf_trade_password.attributedPlaceholder = [[NSAttributedString alloc] initWithString:_tf_trade_password.placeholder
                                                                                    attributes:@{NSForegroundColorAttributeName:[ThemeManager sharedThemeManager].textColorGray,
@@ -142,12 +142,6 @@ enum
 -(void)viewWillAppear:(BOOL)animated
 {
     [super viewWillAppear:animated];
-    if (self.tmpPassword)
-    {
-        _tf_private_key.text = self.tmpPassword;
-        self.tmpPassword = nil;
-    }
-    //  TODO:fowallet _tf_trade_password
 }
 
 -(void)viewDidAppear:(BOOL)animated
@@ -202,124 +196,20 @@ enum
     
     //  开始登录
     pPrivateKey = pPrivateKey ? pPrivateKey : @"";
-    pTradePassword = pTradePassword ? pTradePassword : @"";
-    
-    //  从WIF私钥获取公钥
-    NSString* calc_bts_active_address = [OrgUtils genBtsAddressFromWifPrivateKey:pPrivateKey];
-    if (!calc_bts_active_address){
+    NSString* pPublicKey = [OrgUtils genBtsAddressFromWifPrivateKey:pPrivateKey];
+    if (!pPublicKey){
         [OrgUtils makeToast:NSLocalizedString(@"kLoginSubmitTipsInvalidPrivateKey", @"私钥数据无效，请重新输入。")];
         return;
     }
     
-    ChainObjectManager* chainMgr = [ChainObjectManager sharedChainObjectManager];
-    
-    [_owner showBlockViewWithTitle:NSLocalizedString(@"kTipsBeRequesting", @"请求中...")];
-    [[[chainMgr queryAccountDataHashFromKeys:@[calc_bts_active_address]] then:(^id(id account_data_hash) {
-        if ([account_data_hash count] <= 0){
-            [_owner hideBlockView];
-            [OrgUtils makeToast:NSLocalizedString(@"kLoginSubmitTipsPrivateKeyIncorrect", @"私钥不正确，请重新输入。")];
-            return nil;
-        }
-        id account_data_list = [account_data_hash allValues];
-        //  TODO:一个私钥关联多个账号
-        if ([account_data_list count] >= 2){
-            NSString* name_join_strings = [[account_data_list ruby_map:(^id(id src) {
-                return [src objectForKey:@"name"];
-            })] componentsJoinedByString:@","];
-            CLS_LOG(@"ONE KEY %@ ACCOUNTS: %@", @([account_data_list count]), name_join_strings);
-        }
-        //  默认选择第一个账号
-        id account_data = [account_data_list firstObject];
-        return [[chainMgr queryFullAccountInfo:account_data[@"id"]] then:(^id(id full_data) {
-            [_owner hideBlockView];
-            
-            if (!full_data || [full_data isKindOfClass:[NSNull class]])
-            {
-                //  这里的帐号信息应该存在，因为帐号ID是通过 get_key_references 返回的。
-                [OrgUtils makeToast:NSLocalizedString(@"kLoginImportTipsQueryAccountFailed", @"查询帐号信息失败，请稍后再试。")];
-                return nil;
-            }
-            
-            //  获取账号数据
-            id account = [full_data objectForKey:@"account"];
-            NSString* accountName = account[@"name"];
-            
-            //  验证Active权限，导入钱包时不验证。
-            if (_checkActivePermission){
-                //  获取active权限数据
-                id account_active = [account objectForKey:@"active"];
-                assert(account_active);
-                
-                //  检测权限是否足够签署需要active权限的交易。
-                EAccountPermissionStatus status = [WalletManager calcPermissionStatus:account_active
-                                                                      privateKeysHash:@{calc_bts_active_address:pPrivateKey}];
-                if (status == EAPS_NO_PERMISSION){
-                    [OrgUtils makeToast:NSLocalizedString(@"kLoginSubmitTipsPrivateKeyIncorrect", @"私钥不正确，请重新输入。")];
-                    return nil;
-                }else if (status == EAPS_PARTIAL_PERMISSION){
-                    [OrgUtils makeToast:NSLocalizedString(@"kLoginSubmitTipsPrivateKeyPermissionNotEnough", @"该私钥权限不足。")];
-                    return nil;
-                }
-            }
-            
-            if (!_checkActivePermission){
-                //  导入账号到现有钱包BIN文件中
-                id full_wallet_bin = [[WalletManager sharedWalletManager] walletBinImportAccount:accountName
-                                                                               privateKeyWifList:@[pPrivateKey]];
-                assert(full_wallet_bin);
-                [[AppCacheManager sharedAppCacheManager] updateWalletBin:full_wallet_bin];
-                [[AppCacheManager sharedAppCacheManager] autoBackupWalletToWebdir:NO];
-                //  重新解锁（即刷新解锁后的账号信息）。
-                id unlockInfos = [[WalletManager sharedWalletManager] reUnlock];
-                assert(unlockInfos && [[unlockInfos objectForKey:@"unlockSuccess"] boolValue]);
-                
-                //  返回
-                [TempManager sharedTempManager].importToWalletDirty = YES;
-                [_owner.myNavigationController tempDisableDragBack];
-                [OrgUtils showMessageUseHud:NSLocalizedString(@"kWalletImportSuccess", @"导入完成")
-                                       time:1
-                                     parent:_owner.navigationController.view
-                            completionBlock:^{
-                                [_owner.myNavigationController tempEnableDragBack];
-                                [_owner.navigationController popViewControllerAnimated:YES];
-                            }];
-            }else{
-                //  创建完整钱包模式
-                id full_wallet_bin = [[WalletManager sharedWalletManager] genFullWalletData:accountName
-                                                                                     active:pPrivateKey owner:nil memo:nil
-                                                                            wallet_password:pTradePassword];
-                
-                //  保存钱包信息
-                [[AppCacheManager sharedAppCacheManager] setWalletInfo:kwmPrivateKeyWithWallet
-                                                           accountInfo:full_data
-                                                           accountName:accountName
-                                                         fullWalletBin:full_wallet_bin];
-                [[AppCacheManager sharedAppCacheManager] autoBackupWalletToWebdir:NO];
-                //  导入成功 用交易密码 直接解锁。
-                id unlockInfos = [[WalletManager sharedWalletManager] unLock:pTradePassword];
-                assert(unlockInfos &&
-                       [[unlockInfos objectForKey:@"unlockSuccess"] boolValue] &&
-                       [[unlockInfos objectForKey:@"haveActivePermission"] boolValue]);
-                //  [统计]
-                [Answers logCustomEventWithName:@"loginEvent" customAttributes:@{@"mode":@(kwmPrivateKeyWithWallet), @"desc":@"privatekey"}];
-                
-                //  返回
-                [_owner.myNavigationController tempDisableDragBack];
-                [OrgUtils showMessageUseHud:NSLocalizedString(@"kLoginTipsLoginOK", @"登录成功。")
-                                       time:1
-                                     parent:_owner.navigationController.view
-                            completionBlock:^{
-                                [_owner.myNavigationController tempEnableDragBack];
-                                [_owner.navigationController popViewControllerAnimated:YES];
-                            }];
-            }
-            return nil;
-        })];
-    })] catch:(^id(id error) {
-        [_owner hideBlockView];
-        [OrgUtils showGrapheneError:error];
-        return nil;
-    })];
+    [VCCommonLogic onLoginWithKeysHash:_owner
+                                  keys:@{pPublicKey:pPrivateKey}
+                 checkActivePermission:_checkActivePermission
+                        trade_password:pTradePassword ?: @""
+                            login_mode:kwmPrivateKeyWithWallet
+                            login_desc:@"login with privatekey"
+               errMsgInvalidPrivateKey:NSLocalizedString(@"kLoginSubmitTipsPrivateKeyIncorrect", @"私钥不正确，请重新输入。")
+       errMsgActivePermissionNotEnough:NSLocalizedString(@"kLoginSubmitTipsPermissionNotEnoughAndCannotBeImported", @"资金权限不足，不可导入。")];
 }
 
 - (void)didReceiveMemoryWarning
@@ -358,9 +248,6 @@ enum
 
 - (nullable NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section
 {
-    //    if ([self getSectionType:section] == kVcFastLogin){
-    //        return NSLocalizedString(@"tip_click_account_to_login", @"点击以下账号可直接快速登录、滑动可删除。");
-    //    }
     return nil;
 }
 
@@ -474,28 +361,6 @@ enum
     }
 }
 
-#pragma mark-
-#pragma drag back event
-
-- (void)onDragBackStart
-{
-    [self.view endEditing:YES];
-    [_tf_private_key safeResignFirstResponder];
-    if (_tf_trade_password){
-        [_tf_trade_password safeResignFirstResponder];
-    }
-}
-
-- (void)onDragBackFinish:(BOOL)bToTarget
-{
-    if (!bToTarget)
-    {
-        if (_tf_trade_password){
-            [_tf_trade_password becomeFirstResponder];
-        }
-    }
-}
-
 #pragma mark- tip button
 - (void)onTipButtonClicked:(UIButton*)button
 {
@@ -503,8 +368,8 @@ enum
         case kVcSubUserActivePrivateKey:
         {
             //  [统计]
-            [Answers logCustomEventWithName:@"qa_tip_click" customAttributes:@{@"qa":@"qa_active_privatekey"}];
-            VCBtsaiWebView* vc = [[VCBtsaiWebView alloc] initWithUrl:@"http://btspp.io/qam.html#qa_active_privatekey"];
+            [OrgUtils logEvents:@"qa_tip_click" params:@{@"qa":@"qa_active_privatekey"}];
+            VCBtsaiWebView* vc = [[VCBtsaiWebView alloc] initWithUrl:@"https://btspp.io/qam.html#qa_active_privatekey"];
             vc.title = NSLocalizedString(@"kVcTitleWhatIsActivePrivateKey", @"什么是资金私钥？");
             [_owner pushViewController:vc vctitle:nil backtitle:kVcDefaultBackTitleName];
         }
@@ -512,8 +377,8 @@ enum
         case kVcSubUserTradingPassword:
         {
             //  [统计]
-            [Answers logCustomEventWithName:@"qa_tip_click" customAttributes:@{@"qa":@"qa_trading_password"}];
-            VCBtsaiWebView* vc = [[VCBtsaiWebView alloc] initWithUrl:@"http://btspp.io/qam.html#qa_trading_password"];
+            [OrgUtils logEvents:@"qa_tip_click" params:@{@"qa":@"qa_trading_password"}];
+            VCBtsaiWebView* vc = [[VCBtsaiWebView alloc] initWithUrl:@"https://btspp.io/qam.html#qa_trading_password"];
             vc.title = NSLocalizedString(@"kVcTitleWhatIsTradePassowrd", @"什么是交易密码？");
             [_owner pushViewController:vc vctitle:nil backtitle:kVcDefaultBackTitleName];
         }

@@ -117,7 +117,7 @@ static NSInteger gen_notify_unique_id()
     NSString *className = [NSString stringWithUTF8String:object_getClassName(self)];
     CLS_LOG(@"viewDidLoad: %@", className);
     //  [统计]
-    [Answers logCustomEventWithName:@"viewDidLoad" customAttributes:@{@"view":className}];
+    [OrgUtils logEvents:@"viewDidLoad" params:@{@"view":className}];
     
 	// Do any additional setup after loading the view.
     self.view.backgroundColor = [UIColor whiteColor];
@@ -345,6 +345,18 @@ static NSInteger gen_notify_unique_id()
     }
     btn.layer.cornerRadius = 3.0f;
     btn.layer.masksToBounds = YES;
+}
+
+/**
+ *  (public) refresh back text when SWITCH LANGUAGE
+ */
+- (void)refreshBackButtonText
+{
+    UIBarButtonItem* barButtonItem = [[UIBarButtonItem alloc] initWithTitle:kVcDefaultBackTitleName
+                                                                      style:UIBarButtonItemStyleDone
+                                                                     target:nil
+                                                                     action:nil];
+    self.navigationItem.backBarButtonItem = barButtonItem;
 }
 
 /**
@@ -690,10 +702,12 @@ static NSInteger gen_notify_unique_id()
 - (void)onExecuteCreateProposalCore:(EBitsharesOperations)opcode
                              opdata:(id)opdata
                           opaccount:(id)opaccount
-                 fee_paying_account:(id)fee_paying_account
+               proposal_create_args:(id)proposal_create_args
                    success_callback:(void (^)())success_callback
 {
     assert(opdata);
+    assert(proposal_create_args);
+    id fee_paying_account = [proposal_create_args objectForKey:@"kFeePayingAccount"];
     assert(fee_paying_account);
     NSString* fee_paying_account_id = [fee_paying_account objectForKey:@"id"];
     assert(fee_paying_account_id);
@@ -702,7 +716,7 @@ static NSInteger gen_notify_unique_id()
     [[[[BitsharesClientManager sharedBitsharesClientManager] proposalCreate:opcode
                                                                      opdata:opdata
                                                                   opaccount:opaccount
-                                                         fee_paying_account:fee_paying_account_id] then:(^id(id data)
+                                                       proposal_create_args:proposal_create_args] then:(^id(id data)
     {
         [self hideBlockView];
         //  成功回调
@@ -712,13 +726,13 @@ static NSInteger gen_notify_unique_id()
             [OrgUtils makeToast:NSLocalizedString(@"kProposalSubmitTipTxOK", @"创建提案成功。")];
         }
         //  [统计]
-        [Answers logCustomEventWithName:@"txProposalCreateOK" customAttributes:@{@"opcode":@(opcode), @"account":fee_paying_account_id}];
+        [OrgUtils logEvents:@"txProposalCreateOK" params:@{@"opcode":@(opcode), @"account":fee_paying_account_id}];
         return nil;
     })] catch:(^id(id error) {
         [self hideBlockView];
         [OrgUtils showGrapheneError:error];
         //  [统计]
-        [Answers logCustomEventWithName:@"txProposalCreateFailed" customAttributes:@{@"opcode":@(opcode), @"account":fee_paying_account_id}];
+        [OrgUtils logEvents:@"txProposalCreateFailed" params:@{@"opcode":@(opcode), @"account":fee_paying_account_id}];
         return nil;
     })];
 }
@@ -731,7 +745,7 @@ static NSInteger gen_notify_unique_id()
     invoke_proposal_callback:(BOOL)invoke_proposal_callback
                       opdata:(id)opdata
                    opaccount:(id)opaccount
-                        body:(void (^)(BOOL isProposal, NSDictionary* fee_paying_account))body
+                        body:(void (^)(BOOL isProposal, NSDictionary* proposal_create_args))body
             success_callback:(void (^)())success_callback
 {
     id account_name = [opaccount objectForKey:@"name"];
@@ -751,17 +765,18 @@ static NSInteger gen_notify_unique_id()
              // 转到提案确认界面
              VCProposalConfirm* vc = [[VCProposalConfirm alloc] initWithOpcode:opcode
                                                                         opdata:opdata
-                                                                      callback:^(BOOL isOk, NSDictionary* fee_paying_account)
+                                                                     opaccount:opaccount
+                                                                      callback:^(BOOL isOk, NSDictionary* proposal_create_args)
                                       {
                                           if (isOk){
                                               if (invoke_proposal_callback){
                                                   assert(body);
-                                                  body(YES, fee_paying_account);
+                                                  body(YES, proposal_create_args);
                                               }else{
                                                   [self onExecuteCreateProposalCore:opcode
                                                                              opdata:opdata
                                                                           opaccount:opaccount
-                                                                 fee_paying_account:fee_paying_account
+                                                               proposal_create_args:proposal_create_args
                                                                    success_callback:success_callback];
                                               }
                                           }else{
@@ -784,7 +799,7 @@ static NSInteger gen_notify_unique_id()
                 invoke_proposal_callback:(BOOL)invoke_proposal_callback
                                   opdata:(id)opdata
                                opaccount:(id)opaccount
-                                    body:(void (^)(BOOL isProposal, NSDictionary* fee_paying_account))body
+                                    body:(void (^)(BOOL isProposal, NSDictionary* proposal_create_args))body
 {
     assert(opdata);
     assert(opaccount);
@@ -817,6 +832,7 @@ static NSInteger gen_notify_unique_id()
             [[UIAlertViewManager sharedUIAlertViewManager] showInputBox:title
                                                               withTitle:nil
                                                             placeholder:NSLocalizedString(@"unlockTipsPleaseInputWalletPassword", @"请输入钱包密码")
+                                                             ispassword:YES
                                                                      ok:NSLocalizedString(@"unlockBtnUnlock", @"解锁") completion:^(NSInteger buttonIndex, NSString *tfvalue)
              {
                  if (buttonIndex != 0){
@@ -918,22 +934,16 @@ static NSInteger gen_notify_unique_id()
 //
 //}
 
-#pragma mark- drag back event
-
-- (void)onDragBackStart
-{
-    [self.view endEditing:YES];
-    
-    id list = [self getIvarList:[UITextField class]];
-    for (id tf in list) {
-        [tf safeResignFirstResponder];
-    }
-}
-
 #pragma mark- switch theme
 - (void)switchTheme
 {
     //  REMARK:切换theme时需要特殊处理的就重载该方法
+}
+
+#pragma mark- switch language
+- (void)switchLanguage
+{
+    //  REMARK:切换language时需要特殊处理的就重载该方法
 }
 
 - (void)reloadTableView:(UITableView*)tableView

@@ -46,7 +46,6 @@ enum
     kVcSubUserOrder,            //  订单管理
     kVcSubWalletMgr,            //  钱包管理
     kVcSubProposal,             //  提案管理
-//    kVcSubVestingBalance,       //  待解冻金额（TODO：暂时未完成）
 };
 
 enum
@@ -63,7 +62,7 @@ enum
 @interface VCMyself ()
 {    
     UITableView*            _mainTableView;
-    NSArray*                _dateArray; //  assgin
+    NSArray*                _dataArray; //  assgin
     
     ViewFaceCell*           _faceView;
 }
@@ -95,23 +94,22 @@ enum
     self.view.backgroundColor = [ThemeManager sharedThemeManager].appBackColor;
     
     NSArray* pSection1 = [NSArray arrayWithObjects:
-                          NSLocalizedString(@"kAccount", @"帐号"),
+                          @"kAccount",                      //  帐号
                           nil];
     NSArray* pSection2 = [NSArray arrayWithObjects:
-                          NSLocalizedString(@"kLblCellMyBalance", @"我的资产"),
-                          NSLocalizedString(@"kLblCellOrderManagement", @"订单管理"),
-                          NSLocalizedString(@"kLblCellWalletAndMultiSign", @"钱包&多签"),
-                          NSLocalizedString(@"kLblCellMyProposal", @"待处理提案"),
-//                          NSLocalizedString(@"kLblCellVestingBalance", @"待解冻金额"),
+                          @"kLblCellMyBalance",             //  我的资产,
+                          @"kLblCellOrderManagement",       //  订单管理,
+                          @"kLblCellWalletAndMultiSign",    //  钱包&多签
+                          @"kLblCellMyProposal",            //  待处理提案,
                           nil];
     NSArray* pSection3 = [NSArray arrayWithObjects:
-                          NSLocalizedString(@"faq",@"常见问题"),
+                          @"faq",                           //  常见问题,
                           nil];
     NSArray* pSection4 = [NSArray arrayWithObjects:
-                          NSLocalizedString(@"kSettingEx", @"设置"),
-                          NSLocalizedString(@"kLblCellAboutBtspp", @"关于BTS++"),
+                          @"kSettingEx",                    //  设置,
+                          @"kLblCellAboutBtspp",            //  关于BTS++,
                           nil];
-    _dateArray = [[NSArray alloc] initWithObjects:pSection1, pSection2, pSection3, pSection4, nil];
+    _dataArray = [[NSArray alloc] initWithObjects:pSection1, pSection2, pSection3, pSection4, nil];
     
     _mainTableView = [[UITableView alloc] initWithFrame:[self rectWithoutTabbar] style:UITableViewStyleGrouped];
     _mainTableView.delegate = self;
@@ -148,12 +146,12 @@ enum
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView
 {
-    return [_dateArray count];
+    return [_dataArray count];
 }
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section
 {
-    return [[_dateArray objectAtIndex:section] count];
+    return [[_dataArray objectAtIndex:section] count];
 }
 
 -(CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath
@@ -203,9 +201,9 @@ enum
     
     cell.showCustomBottomLine = YES;
     
-    id ary = [_dateArray objectAtIndex:indexPath.section];
+    id ary = [_dataArray objectAtIndex:indexPath.section];
     
-    cell.textLabel.text = [ary objectAtIndex:indexPath.row];
+    cell.textLabel.text = NSLocalizedString([ary objectAtIndex:indexPath.row], @"");
     cell.textLabel.textColor = [ThemeManager sharedThemeManager].textColorMain;
     
     //  设置图标
@@ -237,13 +235,6 @@ enum
                     cell.imageView.tintColor = [ThemeManager sharedThemeManager].textColorNormal;
                 }
                     break;
-//                case kVcSubVestingBalance:
-//                {
-//                    //  TODO:fowallet 图标
-//                    cell.imageView.image = [UIImage templateImageNamed:@"iconOrders"];
-//                    cell.imageView.tintColor = [ThemeManager sharedThemeManager].textColorNormal;
-//                }
-//                    break;
                 default:
                     break;
             }
@@ -302,7 +293,7 @@ enum
             case kVcBanner:
             {
                 if ([[WalletManager sharedWalletManager] isWalletExist]){
-                    vc = [[VCUserCenter alloc] init];
+                    vc = [[VCUserCenterPages alloc] init];
                     vc.title = NSLocalizedString(@"kVcTitleAccountInfos", @"帐号信息");
                 }else{
                     vc = [[VCImportAccount alloc] init];
@@ -369,15 +360,6 @@ enum
                         }];
                     }
                         break;
-//                    case kVcSubVestingBalance:
-//                    {
-//                        [self GuardWalletExist:^{
-//                            VCVestingBalance* vc = [[VCVestingBalance alloc] init];
-//                            vc.title = NSLocalizedString(@"kVcTitleVestingBalance", @"待解冻金额");
-//                            [self pushViewController:vc vctitle:nil backtitle:kVcDefaultBackTitleName];
-//                        }];
-//                    }
-//                        break;
                     default:
                         break;
                 }
@@ -405,7 +387,7 @@ enum
 //                    return nil;
 //                })];
 //                return;
-                vc = [[VCBtsaiWebView alloc] initWithUrl:@"http://btspp.io/qa.html"];
+                vc = [[VCBtsaiWebView alloc] initWithUrl:@"https://btspp.io/qa.html"];
                 vc.title = NSLocalizedString(@"kVcTitleFAQ", @"常见问题");
             }
                 break;
@@ -471,6 +453,34 @@ enum
                         continue;
                     }
                     [vc switchTheme];
+                }
+            }
+        }
+    }
+}
+
+#pragma mark- switch language
+- (void)switchLanguage
+{
+    //  required !!!
+    [self refreshBackButtonText];
+    
+    self.title = NSLocalizedString(@"kTabBarNameMy", @"我的");
+    self.tabBarItem.title = NSLocalizedString(@"kTabBarNameMy", @"我的");
+    
+    if (_mainTableView){
+        [_mainTableView reloadData];
+    }
+    //  REMARK：处理个人中心导航堆栈里的所有 VC 的语言切换。
+    if (self.navigationController){
+        NSArray* viewControllers = self.navigationController.viewControllers;
+        if (viewControllers && [viewControllers count] > 0){
+            if ([viewControllers firstObject] == self){
+                for (VCBase* vc in viewControllers) {
+                    if (vc == self){
+                        continue;
+                    }
+                    [vc switchLanguage];
                 }
             }
         }

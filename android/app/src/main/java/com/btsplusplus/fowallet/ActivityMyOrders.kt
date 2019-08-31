@@ -5,7 +5,6 @@ import android.support.design.widget.TabLayout
 import android.support.v4.app.Fragment
 import android.support.v4.view.ViewPager
 import android.view.animation.OvershootInterpolator
-import bitshares.TempManager
 import com.btsplusplus.fowallet.kline.TradingPair
 import kotlinx.android.synthetic.main.activity_my_orders.*
 import org.json.JSONArray
@@ -28,7 +27,7 @@ class ActivityMyOrders : BtsppActivity() {
         setAutoLayoutContentView(R.layout.activity_my_orders)
 
         //  获取参数
-        var args = TempManager.sharedTempManager().get_args_as_JSONArray()
+        var args = btspp_args_as_JSONArray()
         _full_account_data = args[0] as JSONObject
         _tradeHistory = args[1] as JSONArray
         _tradingPair = args[2] as? TradingPair
